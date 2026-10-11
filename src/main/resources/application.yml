@@ -1,0 +1,68 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: fruit-shop
+  # 演示口径：H2 内存库，零安装，随进程起停；数据从 db/schema-h2.sql + db/seed 装载
+  datasource:
+    url: jdbc:h2:mem:fruitshop;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-h2.sql
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    # 说明：早期用 StdOutImpl 打印全部 SQL，导入 5 万条种子数据时 surefire 报告会膨胀到 40MB+。
+    # 这里改为 NoLoggingImpl，需要排查 SQL 时用 --mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl 覆盖。
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.fruit.shop: DEBUG
+
+app:
+  # 定价策略开关：rule=规则版基线，model=数据驱动版；评测脚本会同时跑两者
+  pricing:
+    active-strategy: rule
+    # 临期阈值（天）：剩余可售天数 <= 该值进入临期清单
+    near-expiry-days: 2
+    # 最低折扣线（价格比）：任何策略与店主改价都不得低于该值（参考架构《定价引擎》第 4 步）
+    min-discount-rate: 0.60
+    # 同一批次每天最多调价次数（生成建议与店主改价都算；按建议价成交不算；幂等重跑不算）
+    max-adjust-per-day: 2
+  # 临期扫描：只读派生计算（写 freshness/at_risk 等指标），不产生任何决策结果
+  scan:
+    enabled: true
+    cron: '0 0 * * * *'
+  # 推送口子：课程项目只做站内消息 + 文案生成，不接真实短信/微信
+  push:
+    daily-limit-per-member: 2
+    quiet-hours: '22:00-08:00'

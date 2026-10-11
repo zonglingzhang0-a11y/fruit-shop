@@ -1,0 +1,483 @@
+{
+  "meta": {
+    "source": "data/interim/product_info.csv + loss_rate_category.csv + loss_rate_item.csv + wholesale_price.csv + sales_detail.csv",
+    "kind": "REAL",
+    "fingerprint": {
+      "product_info": {
+        "file": "data/interim/product_info.csv",
+        "rows": 251,
+        "sha256_16": "d4a6d747ec905634"
+      },
+      "loss_rate_category": {
+        "file": "data/interim/loss_rate_category.csv",
+        "rows": 6,
+        "sha256_16": "b44d4895dc2fc4e8"
+      },
+      "loss_rate_item": {
+        "file": "data/interim/loss_rate_item.csv",
+        "rows": 251,
+        "sha256_16": "4d56a860428db897"
+      },
+      "wholesale_price": {
+        "file": "data/interim/wholesale_price.csv",
+        "rows": 55982,
+        "sha256_16": "6669672926ffc1c0"
+      },
+      "sales_detail": {
+        "file": "data/interim/sales_detail.csv",
+        "rows": 878503,
+        "sha256_16": "340a60d855ad6922"
+      }
+    }
+  },
+  "definition": {
+    "loss_rate_pct": "附件4 给出的品类/单品参考损耗率（百分比，公开数据自带，非本项目实测）",
+    "avg_loss_rate_pct": "附件4 第1个工作表的 6 大类平均值",
+    "markup": "当日数量加权零售均价 / 当日批发价（同单品同日配对，内连接）",
+    "gross_margin_rate": "1 - 批发价/零售均价（未扣损耗）",
+    "break_even_discount_coef": "派生值：d = 1/(加价率×(1-损耗率))"
+  },
+  "categories": [
+    {
+      "category_name": "花菜类",
+      "category_code": "1011010201",
+      "avg_loss_rate_pct": 15.51,
+      "item_count": 5,
+      "item_count_with_sales": 5,
+      "item_loss_rate_pct_min": 5.7,
+      "item_loss_rate_pct_median": 9.34,
+      "item_loss_rate_pct_max": 12.69,
+      "wholesale_price_mean": 7.175169,
+      "wholesale_price_cv_median": 0.250285,
+      "markup_median": 1.616515,
+      "gross_margin_rate_from_markup_median": 0.381385,
+      "sales_qty_kg_total": 41789.777
+    },
+    {
+      "category_name": "水生根茎类",
+      "category_code": "1011010402",
+      "avg_loss_rate_pct": 13.65,
+      "item_count": 19,
+      "item_count_with_sales": 18,
+      "item_loss_rate_pct_min": 3.43,
+      "item_loss_rate_pct_median": 9.43,
+      "item_loss_rate_pct_max": 12.69,
+      "wholesale_price_mean": 7.52196,
+      "wholesale_price_cv_median": 0.260477,
+      "markup_median": 1.469005,
+      "gross_margin_rate_from_markup_median": 0.319267,
+      "sales_qty_kg_total": 40607.552
+    },
+    {
+      "category_name": "花叶类",
+      "category_code": "1011010101",
+      "avg_loss_rate_pct": 12.83,
+      "item_count": 100,
+      "item_count_with_sales": 99,
+      "item_loss_rate_pct_min": 0.0,
+      "item_loss_rate_pct_median": 10.87,
+      "item_loss_rate_pct_max": 29.25,
+      "wholesale_price_mean": 8.129767,
+      "wholesale_price_cv_median": 0.322923,
+      "markup_median": 1.699717,
+      "gross_margin_rate_from_markup_median": 0.411667,
+      "sales_qty_kg_total": 198659.553
+    },
+    {
+      "category_name": "食用菌",
+      "category_code": "1011010801",
+      "avg_loss_rate_pct": 9.45,
+      "item_count": 72,
+      "item_count_with_sales": 71,
+      "item_loss_rate_pct_min": 0.0,
+      "item_loss_rate_pct_median": 9.43,
+      "item_loss_rate_pct_max": 29.03,
+      "wholesale_price_mean": 8.390087,
+      "wholesale_price_cv_median": 0.173769,
+      "markup_median": 1.633857,
+      "gross_margin_rate_from_markup_median": 0.387951,
+      "sales_qty_kg_total": 76131.726
+    },
+    {
+      "category_name": "辣椒类",
+      "category_code": "1011010504",
+      "avg_loss_rate_pct": 9.24,
+      "item_count": 45,
+      "item_count_with_sales": 43,
+      "item_loss_rate_pct_min": 0.0,
+      "item_loss_rate_pct_median": 9.43,
+      "item_loss_rate_pct_max": 19.8,
+      "wholesale_price_mean": 6.828573,
+      "wholesale_price_cv_median": 0.371805,
+      "markup_median": 1.7546,
+      "gross_margin_rate_from_markup_median": 0.43007,
+      "sales_qty_kg_total": 91645.112
+    },
+    {
+      "category_name": "茄类",
+      "category_code": "1011010501",
+      "avg_loss_rate_pct": 6.68,
+      "item_count": 10,
+      "item_count_with_sales": 10,
+      "item_loss_rate_pct_min": 0.0,
+      "item_loss_rate_pct_median": 9.43,
+      "item_loss_rate_pct_max": 10.75,
+      "wholesale_price_mean": 5.475965,
+      "wholesale_price_cv_median": 0.392922,
+      "markup_median": 1.595092,
+      "gross_margin_rate_from_markup_median": 0.373077,
+      "sales_qty_kg_total": 22442.119
+    }
+  ],
+  "loss_rate_range_pct": {
+    "min": 6.68,
+    "max": 15.51
+  },
+  "item_loss_rate": {
+    "n_items": 251,
+    "min": 0.0,
+    "median": 9.43,
+    "max": 29.25,
+    "source": "product_info.csv（附件1）的 loss_rate_pct",
+    "att4_vs_att1": {
+      "att4_item_rows": 251,
+      "att1_item_rows": 251,
+      "items_with_both": 251,
+      "positional_equal_rows": 251,
+      "code_join_equal_rows": 50,
+      "code_join_mismatch_rows": 201,
+      "max_abs_diff_pct_point_when_joined_by_code": 27.74,
+      "loss_rate_item_code_is_sorted": true,
+      "product_info_code_is_sorted": false,
+      "aligned": true,
+      "authoritative_source": "data/interim/product_info.csv（附件1）的 loss_rate_pct",
+      "conclusion": "附件4 单品表的损耗率数值与附件1 逐行一致，但其单品编码列被单独升序排序，按编码连接会错配。本脚本的单品损耗率一律取附件1，并把 data/interim/loss_rate_item.csv 视为不可按 item_code 连接的文件。"
+    }
+  },
+  "wholesale": {
+    "rows": 55982,
+    "items": 251,
+    "dates": 1091,
+    "date_range": [
+      "2020-07-01",
+      "2023-06-30"
+    ],
+    "mean_price_yuan_per_kg": 5.96262,
+    "median_price_yuan_per_kg": 4.63,
+    "p05": 1.34,
+    "p95": 14.4,
+    "daily_index_mean": 5.947787,
+    "daily_index_std": 1.188392,
+    "item_cv_median": 0.279626,
+    "item_cv_p90": 0.557317,
+    "by_year": {
+      "2020": {
+        "n_rows": 8026,
+        "n_items": 94,
+        "mean_wholesale_price": 6.445353,
+        "std": 5.387976
+      },
+      "2021": {
+        "n_rows": 18604,
+        "n_items": 143,
+        "mean_wholesale_price": 6.329851,
+        "std": 4.836053
+      },
+      "2022": {
+        "n_rows": 20887,
+        "n_items": 207,
+        "mean_wholesale_price": 5.472876,
+        "std": 4.907343
+      },
+      "2023": {
+        "n_rows": 8465,
+        "n_items": 139,
+        "mean_wholesale_price": 5.906261,
+        "std": 5.513579
+      }
+    },
+    "note": "单品批发价的日间波动（CV 中位数）决定仿真器成本噪声的量级；批发价只在部分日期有记录，与销售流水的交集观测数见 markup.n_item_day_obs。"
+  },
+  "markup": {
+    "n_item_day_obs": 46595,
+    "items": 246,
+    "dates": 1085,
+    "wholesale_dup_item_date_collapsed": 0,
+    "markup_median": 1.651376,
+    "markup_p25": 1.48855,
+    "markup_p75": 1.868276,
+    "gross_margin_rate_median": 0.394444,
+    "note": "加价率 = 当日数量加权零售均价 / 当日批发价（同单品同日配对，内连接）。仿真器的成本-售价关系按此标定；未扣损耗，保本折扣见 break_even_discount。"
+  },
+  "break_even_discount": [
+    {
+      "category_name": "花菜类",
+      "markup_median": 1.616515,
+      "avg_loss_rate_pct": 15.51,
+      "break_even_discount_coef": 0.732175,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    },
+    {
+      "category_name": "水生根茎类",
+      "markup_median": 1.469005,
+      "avg_loss_rate_pct": 13.65,
+      "break_even_discount_coef": 0.788341,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    },
+    {
+      "category_name": "花叶类",
+      "markup_median": 1.699717,
+      "avg_loss_rate_pct": 12.83,
+      "break_even_discount_coef": 0.674926,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    },
+    {
+      "category_name": "食用菌",
+      "markup_median": 1.633857,
+      "avg_loss_rate_pct": 9.45,
+      "break_even_discount_coef": 0.675923,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    },
+    {
+      "category_name": "辣椒类",
+      "markup_median": 1.7546,
+      "avg_loss_rate_pct": 9.24,
+      "break_even_discount_coef": 0.627953,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    },
+    {
+      "category_name": "茄类",
+      "markup_median": 1.595092,
+      "avg_loss_rate_pct": 6.68,
+      "break_even_discount_coef": 0.671799,
+      "note": "派生值：d 使 d×零售价×(1-损耗率)=批发成本；>=1 表示原价即有安全垫"
+    }
+  ],
+  "top20_items_by_qty": [
+    {
+      "item_code": 102900011016701,
+      "item_name": "芜湖青椒(1)",
+      "category_name": "辣椒类",
+      "loss_rate_pct": 10.34,
+      "qty_kg": 28181.741,
+      "amount": 205219.9385,
+      "n_days": 858,
+      "wp_mean": 5.356686,
+      "markup_median": 1.43811
+    },
+    {
+      "item_code": 102900005116714,
+      "item_name": "西兰花",
+      "category_name": "花菜类",
+      "loss_rate_pct": 5.7,
+      "qty_kg": 27555.945,
+      "amount": 270060.5556,
+      "n_days": 1076,
+      "wp_mean": 6.826876,
+      "markup_median": 1.501877
+    },
+    {
+      "item_code": 102900005116899,
+      "item_name": "净藕(1)",
+      "category_name": "水生根茎类",
+      "loss_rate_pct": 8.11,
+      "qty_kg": 27166.459,
+      "amount": 211769.9397,
+      "n_days": 1057,
+      "wp_mean": 5.794907,
+      "markup_median": 1.428571
+    },
+    {
+      "item_code": 102900005115960,
+      "item_name": "大白菜",
+      "category_name": "花叶类",
+      "loss_rate_pct": 7.61,
+      "qty_kg": 19196.094,
+      "amount": 38780.5657,
+      "n_days": 480,
+      "wp_mean": 1.562726,
+      "markup_median": 1.8
+    },
+    {
+      "item_code": 102900005115779,
+      "item_name": "云南生菜",
+      "category_name": "花叶类",
+      "loss_rate_pct": 18.52,
+      "qty_kg": 15915.422,
+      "amount": 129797.0675,
+      "n_days": 810,
+      "wp_mean": 5.095561,
+      "markup_median": 1.626016
+    },
+    {
+      "item_code": 106949711300259,
+      "item_name": "金针菇(盒)",
+      "category_name": "食用菌",
+      "loss_rate_pct": 16.04,
+      "qty_kg": 15602.0,
+      "amount": 58669.5,
+      "n_days": 429,
+      "wp_mean": 2.35288,
+      "markup_median": 1.507538
+    },
+    {
+      "item_code": 102900011030059,
+      "item_name": "云南生菜(份)",
+      "category_name": "花叶类",
+      "loss_rate_pct": 0.32,
+      "qty_kg": 14335.0,
+      "amount": 64041.5,
+      "n_days": 400,
+      "wp_mean": 2.607857,
+      "markup_median": 1.684637
+    },
+    {
+      "item_code": 102900005116257,
+      "item_name": "紫茄子(2)",
+      "category_name": "茄类",
+      "loss_rate_pct": 0.0,
+      "qty_kg": 13608.976,
+      "amount": 117797.5297,
+      "n_days": 1022,
+      "wp_mean": 5.631306,
+      "markup_median": 1.545254
+    },
+    {
+      "item_code": 102900005116530,
+      "item_name": "西峡香菇(1)",
+      "category_name": "食用菌",
+      "loss_rate_pct": 9.43,
+      "qty_kg": 11929.1,
+      "amount": 211356.7198,
+      "n_days": 821,
+      "wp_mean": 12.115329,
+      "markup_median": 1.509434
+    },
+    {
+      "item_code": 102900011031100,
+      "item_name": "小米椒(份)",
+      "category_name": "辣椒类",
+      "loss_rate_pct": 9.43,
+      "qty_kg": 10847.0,
+      "amount": 55062.0,
+      "n_days": 488,
+      "wp_mean": 3.148931,
+      "markup_median": 2.317298
+    },
+    {
+      "item_code": 102900005115984,
+      "item_name": "云南油麦菜",
+      "category_name": "花叶类",
+      "loss_rate_pct": 8.36,
+      "qty_kg": 10309.079,
+      "amount": 70692.2511,
+      "n_days": 782,
+      "wp_mean": 4.335664,
+      "markup_median": 1.657459
+    },
+    {
+      "item_code": 102900005117056,
+      "item_name": "泡泡椒(精品)",
+      "category_name": "辣椒类",
+      "loss_rate_pct": 0.0,
+      "qty_kg": 9707.027,
+      "amount": 95610.6849,
+      "n_days": 228,
+      "wp_mean": 7.550159,
+      "markup_median": 1.413033
+    },
+    {
+      "item_code": 102900005118831,
+      "item_name": "娃娃菜",
+      "category_name": "花叶类",
+      "loss_rate_pct": 5.01,
+      "qty_kg": 9002.0,
+      "amount": 45162.4,
+      "n_days": 688,
+      "wp_mean": 3.531882,
+      "markup_median": 1.597504
+    },
+    {
+      "item_code": 102900011030097,
+      "item_name": "云南油麦菜(份)",
+      "category_name": "花叶类",
+      "loss_rate_pct": 12.2,
+      "qty_kg": 8856.0,
+      "amount": 35725.2,
+      "n_days": 410,
+      "wp_mean": 2.30529,
+      "markup_median": 1.744452
+    },
+    {
+      "item_code": 102900011009970,
+      "item_name": "青梗散花",
+      "category_name": "花菜类",
+      "loss_rate_pct": 11.13,
+      "qty_kg": 8394.375,
+      "amount": 58277.9158,
+      "n_days": 444,
+      "wp_mean": 4.484859,
+      "markup_median": 1.616515
+    },
+    {
+      "item_code": 102900011032251,
+      "item_name": "螺丝椒(份)",
+      "category_name": "辣椒类",
+      "loss_rate_pct": 9.43,
+      "qty_kg": 8240.0,
+      "amount": 40750.4,
+      "n_days": 382,
+      "wp_mean": 3.071505,
+      "markup_median": 1.765149
+    },
+    {
+      "item_code": 102900051010455,
+      "item_name": "黄白菜(2)",
+      "category_name": "花叶类",
+      "loss_rate_pct": 10.03,
+      "qty_kg": 7993.683,
+      "amount": 53517.3082,
+      "n_days": 904,
+      "wp_mean": 4.062002,
+      "markup_median": 1.744186
+    },
+    {
+      "item_code": 102900011000328,
+      "item_name": "螺丝椒",
+      "category_name": "辣椒类",
+      "loss_rate_pct": 9.43,
+      "qty_kg": 7794.899,
+      "amount": 82031.9321,
+      "n_days": 858,
+      "wp_mean": 7.641989,
+      "markup_median": 1.541426
+    },
+    {
+      "item_code": 102900005115823,
+      "item_name": "上海青",
+      "category_name": "花叶类",
+      "loss_rate_pct": 13.46,
+      "qty_kg": 7608.386,
+      "amount": 56900.9328,
+      "n_days": 919,
+      "wp_mean": 4.359193,
+      "markup_median": 1.699717
+    },
+    {
+      "item_code": 102900005115786,
+      "item_name": "竹叶菜",
+      "category_name": "花叶类",
+      "loss_rate_pct": 15.25,
+      "qty_kg": 7246.958,
+      "amount": 38957.0876,
+      "n_days": 667,
+      "wp_mean": 5.042135,
+      "markup_median": 1.614907
+    }
+  ],
+  "notes": [
+    "损耗率来自附件4 的参考值，不是本门店实测；仿真器里的损耗要自己按库存-保质期机制产生，这个数字只用来校验仿真结果的量级。",
+    "公开数据是蔬菜按日清仓，损耗率天然高于水果；迁移时按水果品类下调属假设（写在 docs/02 假设章节）。",
+    "数据质量问题（已核实，见 item_loss_rate.att4_vs_att1）：附件4 的单品表里'单品编码'列被单独升序排序，与它自己的'单品名称/损耗率'列错位；其损耗率数值与附件1 逐行完全一致（251/251），但按 item_code 连接只有 50/251 对得上。因此单品损耗率一律以附件1（product_info.csv）为准，禁止把 data/interim/loss_rate_item.csv 按 item_code 连接使用。"
+  ]
+}

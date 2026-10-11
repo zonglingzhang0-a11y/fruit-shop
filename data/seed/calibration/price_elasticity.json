@@ -1,0 +1,906 @@
+{
+  "meta": {
+    "source": "data/interim/sales_detail.csv + product_info.csv + wholesale_price.csv（公开真实数据）",
+    "kind": "REAL（估计方法为本项目自定口径，见 definition）",
+    "fingerprint": {
+      "sales_detail": {
+        "file": "data/interim/sales_detail.csv",
+        "rows": 878503,
+        "sha256_16": "340a60d855ad6922"
+      },
+      "product_info": {
+        "file": "data/interim/product_info.csv",
+        "rows": 251,
+        "sha256_16": "d4a6d747ec905634"
+      },
+      "wholesale_price": {
+        "file": "data/interim/wholesale_price.csv",
+        "rows": 55982,
+        "sha256_16": "6669672926ffc1c0"
+      }
+    }
+  },
+  "definition": {
+    "unit_of_observation": "单品×日",
+    "qty": "当日该单品销售数量之和（kg，退货行已剔除）",
+    "avg_price": "当日该单品 销售额之和 / 销量之和（元/kg，数量加权均价）",
+    "model": "ln(qty) = b × ln(avg_price) + 单品固定效应 + 周几 + 月份 + 线性趋势",
+    "elasticity": "b，价格上升 1% 对应的销量变化百分比；若为负则符合需求定律",
+    "standard_error": "HC1 异方差稳健标准误（classic 也一并给出）",
+    "r2": "r2_type='within' 表示组内 R²（去均值后的拟合优度），'overall' 表示常规 R²",
+    "excluded": "退货行、quantity<=0、unit_price<=0（IV 模型额外剔除缺批发价的观测）",
+    "sample_thresholds": {
+      "item_regression_min_obs": 60,
+      "group_min_obs": 200,
+      "weak_iv_F_threshold": 10.0
+    }
+  },
+  "sample": {
+    "item_day_obs": 46595,
+    "items": 246,
+    "obs_with_wholesale": 46595,
+    "wholesale_dup_item_date_collapsed": 0,
+    "mean_discount_line_share": 0.058668,
+    "share_item_day_with_any_discount": 0.162764,
+    "price_outlier_obs": 138,
+    "within_item_sd_ln_p": 0.324203,
+    "within_item_sd_ln_p_median": 0.222582,
+    "items_with_price_variation": 217
+  },
+  "recommended_for_simulator": {
+    "purpose": "给仿真器需求曲线用的弹性取值区间（由上面的估计推导，属推荐值不是实测值）。",
+    "elasticity_range": [
+      -0.572754,
+      -0.316317
+    ],
+    "central": -0.522754,
+    "by_category": {
+      "水生根茎类": -0.39243,
+      "花叶类": -0.640409,
+      "花菜类": -0.497227,
+      "茄类": -0.823047,
+      "辣椒类": -0.422977,
+      "食用菌": -0.283293
+    },
+    "by_category_range": [
+      -0.823047,
+      -0.283293
+    ],
+    "per_item_median": -0.409507,
+    "basis": "主估计 item_fe_controls（单品固定效应 + 周几/月份/趋势）与 iv_wholesale_costshifter 两个口径的交集；分品类区间取其最小/最大值。",
+    "do_not_use": [
+      "pooled_ols_simple：被组间成分拉大（更负），不是价格效应。",
+      "between_item_means：度量单品定位差异，不是弹性。",
+      "iv_discount_dummy：点估计量级不可信、组内 R² 为负，排除性约束不成立。",
+      "单品层面的点估计：中位组内 R² 仅 0.04031002578254729，132 个单品里只有约 3% 的 R²>0.3，不要逐个单品照搬。"
+    ],
+    "caveat": "这是蔬菜门店按日清仓的数据；水果店的保质期更长、需求更平缓，真实弹性很可能比这里更接近 0（更不敏感）。仿真器应把本区间当上限参考。"
+  },
+  "models": {
+    "pooled_ols_simple": {
+      "elasticity": -0.787624,
+      "se_classic": 0.008278,
+      "se_hc1": 0.008361,
+      "ci95_classic": [
+        -0.80385,
+        -0.771399
+      ],
+      "ci95_hc1": [
+        -0.804012,
+        -0.771237
+      ],
+      "t_stat_hc1": -94.204467,
+      "n_obs": 46595,
+      "n_items": 246,
+      "r2": 0.162682,
+      "r2_type": "overall",
+      "verdict": "不采用：点估计被组间成分拉大。它比单品固定效应估计更负，差额来自 between_item_means 那一层，不是价格效应。",
+      "note": "ln(日销量) ~ ln(日均价) + 常数项，无其他控制（常规 R²）。把'单品之间'与'单品内部'的价格变异混在一起，只作对照，不作为弹性结论。"
+    },
+    "between_item_means": {
+      "elasticity": -0.982182,
+      "se_classic": 0.076064,
+      "se_hc1": 0.067998,
+      "ci95_classic": [
+        -1.131267,
+        -0.833097
+      ],
+      "ci95_hc1": [
+        -1.115458,
+        -0.848905
+      ],
+      "t_stat_hc1": -14.444251,
+      "n_obs": 246,
+      "n_items": 246,
+      "r2": 0.405944,
+      "r2_type": "overall",
+      "verdict": "对照：用来把 pooled OLS 拆成 组间成分 + 组内成分，本身不是弹性（它度量的是单品定位差异，可能含品质/包装差异）。",
+      "note": "单品均值层面：ln(单品平均日销量) ~ ln(单品平均日均价) + 常数项（n=单品数，常规 R²）。度量的是'均价高的单品本来就卖得少'的横截面成分，不含任何跨日价格变动。"
+    },
+    "item_fe_controls": {
+      "elasticity": -0.522754,
+      "se_classic": 0.011653,
+      "se_hc1": 0.012653,
+      "ci95_classic": [
+        -0.545594,
+        -0.499914
+      ],
+      "ci95_hc1": [
+        -0.547553,
+        -0.497954
+      ],
+      "t_stat_hc1": -41.314998,
+      "n_obs": 46595,
+      "n_items": 246,
+      "r2": 0.107798,
+      "r2_type": "within",
+      "verdict": "主估计：本项目推荐采用的量级区间基准。",
+      "note": "单品固定效应 + 周几/月份哑变量 + 线性趋势（组内去均值后 OLS，HC1 稳健标准误）。识别变异只来自同单品跨日的价格变化。"
+    },
+    "item_fe_controls_trimmed": {
+      "elasticity": -0.53539,
+      "se_classic": 0.01172,
+      "se_hc1": 0.012622,
+      "ci95_classic": [
+        -0.558362,
+        -0.512418
+      ],
+      "ci95_hc1": [
+        -0.56013,
+        -0.51065
+      ],
+      "t_stat_hc1": -42.415954,
+      "n_obs": 46457,
+      "n_items": 246,
+      "r2": 0.109462,
+      "r2_type": "within",
+      "verdict": "稳健性对照：与主估计差 0.013，结论不变。",
+      "note": "同上，但剔除单品内 |lnP-均值|>3σ 的价格离群观测（稳健性对照）。"
+    },
+    "iv_wholesale_costshifter": {
+      "elasticity": -0.366317,
+      "se_classic": 0.015622,
+      "se_hc1": 0.015622,
+      "ci95_classic": [
+        -0.396935,
+        -0.335699
+      ],
+      "ci95_hc1": [
+        -0.396935,
+        -0.335699
+      ],
+      "t_stat_hc1": -23.449454,
+      "n_obs": 46595,
+      "n_items": 246,
+      "r2": 0.104345,
+      "r2_type": "within",
+      "verdict": "参考：一阶段强，点估计 -0.37，比主估计更靠近 0。注意它是'供给冲击'识别的，在按日清仓的场景下销量也受供给决定，|弹性| 可能被低估或高估，只作区间校验。",
+      "note": "2SLS：内生变量 lnP，工具 = ln(同日同单品批发价)，同控制集。逻辑：批发价是成本移动项，只通过零售定价影响销量（排除性假设）。",
+      "first_stage_F": 58946.163144,
+      "first_stage_r2": 0.594624,
+      "first_stage_coef_on_instrument": 0.576012,
+      "weak_instrument": false,
+      "implausible": false
+    },
+    "iv_discount_dummy": {
+      "elasticity": -6.236034,
+      "se_classic": 0.422488,
+      "se_hc1": 0.422488,
+      "ci95_classic": [
+        -7.064111,
+        -5.407957
+      ],
+      "ci95_hc1": [
+        -7.064111,
+        -5.407957
+      ],
+      "t_stat_hc1": -14.760256,
+      "n_obs": 46595,
+      "n_items": 246,
+      "r2": -4.496769,
+      "r2_type": "within",
+      "verdict": "不采用：点估计 -6.24，量级不可信，且组内 R²=-4.50（为负说明模型比均值还差）。打折日同时是库存充裕/清仓日，销量与价格被同一个库存冲击推动，排除性约束不成立。它只能作为'打折日销量显著更高'的旁证。",
+      "note": "2SLS：内生变量 lnP，工具 = 当日是否有打折流水。识别的是'打折引起的价格变动'对应的弹性（LATE）；打折本身也是店家决策，排除性存疑。",
+      "first_stage_F": 219.331473,
+      "first_stage_r2": 0.085889,
+      "first_stage_coef_on_instrument": -0.071491,
+      "weak_instrument": false,
+      "implausible": true
+    }
+  },
+  "by_category": {
+    "水生根茎类": {
+      "n_obs": 3210,
+      "n_items": 18,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.39243,
+        "se_classic": 0.055413,
+        "se_hc1": 0.060548,
+        "ci95_classic": [
+          -0.501039,
+          -0.28382
+        ],
+        "ci95_hc1": [
+          -0.511104,
+          -0.273755
+        ],
+        "t_stat_hc1": -6.481292,
+        "n_obs": 3210,
+        "n_items": 18,
+        "r2": 0.188247,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": -0.018513,
+        "se_classic": 0.081287,
+        "se_hc1": 0.081287,
+        "ci95_classic": [
+          -0.177835,
+          0.140809
+        ],
+        "ci95_hc1": [
+          -0.177835,
+          0.140809
+        ],
+        "t_stat_hc1": -0.227751,
+        "n_obs": 3210,
+        "n_items": 18,
+        "r2": 0.176664,
+        "r2_type": "within",
+        "verdict": "参考",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 2845.102956,
+        "first_stage_r2": 0.538071,
+        "first_stage_coef_on_instrument": 0.519282,
+        "weak_instrument": false,
+        "implausible": false
+      },
+      "iv_discount_dummy": {
+        "elasticity": -50.534095,
+        "se_classic": 76.686331,
+        "se_hc1": 76.686331,
+        "ci95_classic": [
+          -200.839303,
+          99.771114
+        ],
+        "ci95_hc1": [
+          -200.839303,
+          99.771114
+        ],
+        "t_stat_hc1": -0.658971,
+        "n_obs": 3210,
+        "n_items": 18,
+        "r2": -208.101701,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 -50.53、组内 R²=-208.10，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 0.429249,
+        "first_stage_r2": 0.126332,
+        "first_stage_coef_on_instrument": -0.009353,
+        "weak_instrument": true,
+        "implausible": true
+      }
+    },
+    "花叶类": {
+      "n_obs": 18090,
+      "n_items": 99,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.640409,
+        "se_classic": 0.017249,
+        "se_hc1": 0.01853,
+        "ci95_classic": [
+          -0.674217,
+          -0.606601
+        ],
+        "ci95_hc1": [
+          -0.676727,
+          -0.60409
+        ],
+        "t_stat_hc1": -34.560656,
+        "n_obs": 18090,
+        "n_items": 99,
+        "r2": 0.178054,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": -0.461302,
+        "se_classic": 0.022466,
+        "se_hc1": 0.022466,
+        "ci95_classic": [
+          -0.505335,
+          -0.417268
+        ],
+        "ci95_hc1": [
+          -0.505335,
+          -0.417268
+        ],
+        "t_stat_hc1": -20.533244,
+        "n_obs": 18090,
+        "n_items": 99,
+        "r2": 0.17315,
+        "r2_type": "within",
+        "verdict": "参考",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 26330.016165,
+        "first_stage_r2": 0.632033,
+        "first_stage_coef_on_instrument": 0.610182,
+        "weak_instrument": false,
+        "implausible": false
+      },
+      "iv_discount_dummy": {
+        "elasticity": -10.98707,
+        "se_classic": 2.104975,
+        "se_hc1": 2.104975,
+        "ci95_classic": [
+          -15.11282,
+          -6.861319
+        ],
+        "ci95_hc1": [
+          -15.11282,
+          -6.861319
+        ],
+        "t_stat_hc1": -5.219573,
+        "n_obs": 18090,
+        "n_items": 99,
+        "r2": -16.187538,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 -10.99、组内 R²=-16.19，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 25.409661,
+        "first_stage_r2": 0.097164,
+        "first_stage_coef_on_instrument": -0.045304,
+        "weak_instrument": false,
+        "implausible": true
+      }
+    },
+    "花菜类": {
+      "n_obs": 1874,
+      "n_items": 5,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.497227,
+        "se_classic": 0.063257,
+        "se_hc1": 0.076525,
+        "ci95_classic": [
+          -0.621211,
+          -0.373244
+        ],
+        "ci95_hc1": [
+          -0.647216,
+          -0.347239
+        ],
+        "t_stat_hc1": -6.497594,
+        "n_obs": 1874,
+        "n_items": 5,
+        "r2": 0.15768,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": -0.462904,
+        "se_classic": 0.088368,
+        "se_hc1": 0.088368,
+        "ci95_classic": [
+          -0.636105,
+          -0.289703
+        ],
+        "ci95_hc1": [
+          -0.636105,
+          -0.289703
+        ],
+        "t_stat_hc1": -5.238366,
+        "n_obs": 1874,
+        "n_items": 5,
+        "r2": 0.157546,
+        "r2_type": "within",
+        "verdict": "参考",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 1950.138129,
+        "first_stage_r2": 0.636314,
+        "first_stage_coef_on_instrument": 0.530375,
+        "weak_instrument": false,
+        "implausible": false
+      },
+      "iv_discount_dummy": {
+        "elasticity": 207.016571,
+        "se_classic": 4448.630268,
+        "se_hc1": 4448.630268,
+        "ci95_classic": [
+          -8512.298754,
+          8926.331895
+        ],
+        "ci95_hc1": [
+          -8512.298754,
+          8926.331895
+        ],
+        "t_stat_hc1": 0.046535,
+        "n_obs": 1874,
+        "n_items": 5,
+        "r2": -4886.488938,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 207.02、组内 R²=-4886.49，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 0.002176,
+        "first_stage_r2": 0.253976,
+        "first_stage_coef_on_instrument": 0.000853,
+        "weak_instrument": true,
+        "implausible": true
+      }
+    },
+    "茄类": {
+      "n_obs": 3207,
+      "n_items": 10,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.823047,
+        "se_classic": 0.044415,
+        "se_hc1": 0.044962,
+        "ci95_classic": [
+          -0.9101,
+          -0.735994
+        ],
+        "ci95_hc1": [
+          -0.911172,
+          -0.734921
+        ],
+        "t_stat_hc1": -18.305415,
+        "n_obs": 3207,
+        "n_items": 10,
+        "r2": 0.305129,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": -0.762806,
+        "se_classic": 0.059311,
+        "se_hc1": 0.059311,
+        "ci95_classic": [
+          -0.879056,
+          -0.646556
+        ],
+        "ci95_hc1": [
+          -0.879056,
+          -0.646556
+        ],
+        "t_stat_hc1": -12.861038,
+        "n_obs": 3207,
+        "n_items": 10,
+        "r2": 0.304728,
+        "r2_type": "within",
+        "verdict": "参考",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 4075.404836,
+        "first_stage_r2": 0.746265,
+        "first_stage_coef_on_instrument": 0.577116,
+        "weak_instrument": false,
+        "implausible": false
+      },
+      "iv_discount_dummy": {
+        "elasticity": 5.810291,
+        "se_classic": 3.117915,
+        "se_hc1": 3.117915,
+        "ci95_classic": [
+          -0.300822,
+          11.921404
+        ],
+        "ci95_hc1": [
+          -0.300822,
+          11.921404
+        ],
+        "t_stat_hc1": 1.863518,
+        "n_obs": 3207,
+        "n_items": 10,
+        "r2": -4.556632,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 5.81、组内 R²=-4.56，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 5.181543,
+        "first_stage_r2": 0.422838,
+        "first_stage_coef_on_instrument": 0.06475,
+        "weak_instrument": true,
+        "implausible": true
+      }
+    },
+    "辣椒类": {
+      "n_obs": 10756,
+      "n_items": 43,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.422977,
+        "se_classic": 0.022974,
+        "se_hc1": 0.024099,
+        "ci95_classic": [
+          -0.468006,
+          -0.377947
+        ],
+        "ci95_hc1": [
+          -0.47021,
+          -0.375743
+        ],
+        "t_stat_hc1": -17.551868,
+        "n_obs": 10756,
+        "n_items": 43,
+        "r2": 0.102456,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": -0.382673,
+        "se_classic": 0.030964,
+        "se_hc1": 0.030964,
+        "ci95_classic": [
+          -0.443362,
+          -0.321983
+        ],
+        "ci95_hc1": [
+          -0.443362,
+          -0.321983
+        ],
+        "t_stat_hc1": -12.358586,
+        "n_obs": 10756,
+        "n_items": 43,
+        "r2": 0.102198,
+        "r2_type": "within",
+        "verdict": "参考",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 13158.240124,
+        "first_stage_r2": 0.651482,
+        "first_stage_coef_on_instrument": 0.515344,
+        "weak_instrument": false,
+        "implausible": false
+      },
+      "iv_discount_dummy": {
+        "elasticity": -4.863685,
+        "se_classic": 0.631222,
+        "se_hc1": 0.631222,
+        "ci95_classic": [
+          -6.100881,
+          -3.62649
+        ],
+        "ci95_hc1": [
+          -6.100881,
+          -3.62649
+        ],
+        "t_stat_hc1": -7.705187,
+        "n_obs": 10756,
+        "n_items": 43,
+        "r2": -3.020733,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 -4.86、组内 R²=-3.02，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 64.096144,
+        "first_stage_r2": 0.228975,
+        "first_stage_coef_on_instrument": -0.077606,
+        "weak_instrument": false,
+        "implausible": true
+      }
+    },
+    "食用菌": {
+      "n_obs": 9458,
+      "n_items": 71,
+      "controls": [
+        "dow_1",
+        "dow_2",
+        "dow_3",
+        "dow_4",
+        "dow_5",
+        "dow_6",
+        "mon_2",
+        "mon_3",
+        "mon_4",
+        "mon_5",
+        "mon_6",
+        "mon_7",
+        "mon_8",
+        "mon_9",
+        "mon_10",
+        "mon_11",
+        "mon_12",
+        "trend"
+      ],
+      "item_fe_controls": {
+        "elasticity": -0.283293,
+        "se_classic": 0.041342,
+        "se_hc1": 0.044013,
+        "ci95_classic": [
+          -0.364324,
+          -0.202262
+        ],
+        "ci95_hc1": [
+          -0.369558,
+          -0.197027
+        ],
+        "t_stat_hc1": -6.436575,
+        "n_obs": 9458,
+        "n_items": 71,
+        "r2": 0.10424,
+        "r2_type": "within",
+        "verdict": "主估计（品类口径），可作仿真器分品类弹性区间的依据。",
+        "note": "品类内单品固定效应 + 周几/月份/趋势。"
+      },
+      "iv_wholesale_costshifter": {
+        "elasticity": 0.665843,
+        "se_classic": 0.096388,
+        "se_hc1": 0.096388,
+        "ci95_classic": [
+          0.476922,
+          0.854764
+        ],
+        "ci95_hc1": [
+          0.476922,
+          0.854764
+        ],
+        "t_stat_hc1": 6.907924,
+        "n_obs": 9458,
+        "n_items": 71,
+        "r2": 0.054222,
+        "r2_type": "within",
+        "verdict": "不采用：与主估计反号（正），该品类批发价很可能与品质/季节同向变动，不满足排除性约束。",
+        "note": "品类内 2SLS，工具 = ln(批发价)。",
+        "first_stage_F": 2275.41788,
+        "first_stage_r2": 0.335471,
+        "first_stage_coef_on_instrument": 0.368551,
+        "weak_instrument": false,
+        "implausible": true
+      },
+      "iv_discount_dummy": {
+        "elasticity": -3.396134,
+        "se_classic": 0.217656,
+        "se_hc1": 0.217656,
+        "ci95_classic": [
+          -3.82274,
+          -2.969528
+        ],
+        "ci95_hc1": [
+          -3.82274,
+          -2.969528
+        ],
+        "t_stat_hc1": -15.603207,
+        "n_obs": 9458,
+        "n_items": 71,
+        "r2": -0.433767,
+        "r2_type": "within",
+        "verdict": "不采用：点估计 -3.40、组内 R²=-0.43，量级与拟合都被库存冲击污染。",
+        "note": "品类内 2SLS，工具 = 打折日哑变量。",
+        "first_stage_F": 578.489431,
+        "first_stage_r2": 0.222902,
+        "first_stage_coef_on_instrument": -0.136108,
+        "weak_instrument": false,
+        "implausible": true
+      }
+    }
+  },
+  "per_item": {
+    "definition": "对每个单品做 ln(日销量) ~ ln(日均价) 的组内回归（无其他控制）；进入分布的只保留观测数 >= 60 的单品。",
+    "n_items_total": 246,
+    "n_items_eligible": 132,
+    "elasticity_quantiles": {
+      "p5": -1.381861,
+      "p25": -0.85432,
+      "p50": -0.409507,
+      "p75": 0.053137,
+      "p95": 1.083451
+    },
+    "median_ci95_approx": [
+      -0.792837,
+      -0.026177
+    ],
+    "share_negative": 0.727273,
+    "share_negative_significant": 0.522727,
+    "median_within_r2": 0.04031,
+    "share_r2_gt_0_3": 0.030303,
+    "median_se": 0.195577,
+    "most_elastic_5": [
+      {
+        "item_code": 102900005115250,
+        "item_name": "西峡花菇(1)",
+        "n": 297,
+        "elasticity": -2.535653,
+        "se": 0.728264,
+        "r2": 0.039472
+      },
+      {
+        "item_code": 102900011011546,
+        "item_name": "海鲜菇(袋)(1)",
+        "n": 172,
+        "elasticity": -2.309983,
+        "se": 0.372059,
+        "r2": 0.184837
+      },
+      {
+        "item_code": 102900051000944,
+        "item_name": "洪湖藕带",
+        "n": 258,
+        "elasticity": -2.122365,
+        "se": 0.275181,
+        "r2": 0.18855
+      },
+      {
+        "item_code": 102900011029176,
+        "item_name": "辣妹子",
+        "n": 73,
+        "elasticity": -1.831653,
+        "se": 0.26476,
+        "r2": 0.402664
+      },
+      {
+        "item_code": 102900051009336,
+        "item_name": "虫草花",
+        "n": 82,
+        "elasticity": -1.579832,
+        "se": 1.137645,
+        "r2": 0.023538
+      }
+    ],
+    "least_elastic_5": [
+      {
+        "item_code": 102900011034224,
+        "item_name": "小青菜(份)",
+        "n": 179,
+        "elasticity": 1.311553,
+        "se": 0.34336,
+        "r2": 0.076155
+      },
+      {
+        "item_code": 102900011035788,
+        "item_name": "西峡香菇(份) ",
+        "n": 65,
+        "elasticity": 1.37909,
+        "se": 0.63663,
+        "r2": 0.069322
+      },
+      {
+        "item_code": 106949711300068,
+        "item_name": "金针菇(袋)(3)",
+        "n": 258,
+        "elasticity": 2.016161,
+        "se": 0.233169,
+        "r2": 0.226041
+      },
+      {
+        "item_code": 106958851400125,
+        "item_name": "海鲜菇(袋)(4)",
+        "n": 314,
+        "elasticity": 2.229255,
+        "se": 0.264451,
+        "r2": 0.185507
+      },
+      {
+        "item_code": 102900011032619,
+        "item_name": "西峡香菇(2)",
+        "n": 69,
+        "elasticity": 3.200134,
+        "se": 0.870042,
+        "r2": 0.167998
+      }
+    ]
+  },
+  "discount_contrast": {
+    "n_obs_discount_day": 7584,
+    "n_obs_no_discount_day": 39011,
+    "n_items_with_both": 172,
+    "mean_price_discount_day": 7.021408,
+    "mean_price_no_discount_day": 9.929341,
+    "mean_qty_discount_day": 15.022818,
+    "mean_qty_no_discount_day": 9.160052,
+    "note": "朴素对照，含选择偏误：打折日本身就是店家判断需要促销的日子，不能当作弹性的因果估计；因果口径见 iv_discount_dummy。"
+  },
+  "notes": [
+    "公开数据是蔬菜（散称 kg、按日批发、当天基本出清），本项目是水果（标品、保质期按天）；弹性数值可作量级参考，不能直接搬用。",
+    "'朴素回归不能直接用'：把单品之间和单品内部的价格变异混在一起时，pooled OLS 得到 -0.79，其中包含 -0.98 这一层'均价高的单品本来就卖得少'的横截面成分（between_item_means，n=246 个单品）；加上单品固定效应、只留同单品跨日的价格变动后是 -0.52。两者方向一致但量级差 0.26，所以：本项目的仿真器不采用朴素弹性，模型版定价必须用固定效应/IV 或至少加控制变量。",
+    "注意：本脚本早期版本曾把不带常数项的回归当成 pooled OLS，得出 +0.64 这种'价格越高卖得越多'的荒谬结果——那是漏掉截距项导致的设定错误（强迫回归线过原点），已修正。本项目文档不应引用该数值。真正的内生性风险仍然存在（店家在需求旺的日子同时不打折），表现为组内估计与 IV 估计之间 0.16 的差距，无法再进一步识别。",
+    "零售价在该数据中并非完全黏性：246 个单品里 217 个有跨日价格变动，单品×日层面价格变异主要来自打折日（16.3% 的单品×日观测含打折流水，流水行层面 5.9%）。",
+    "IV-打折日的估计（-6.2）虽然一阶段 F 很高，但组内 R² 为负、分品类出现 +207 这类荒谬值，说明工具变量与库存冲击相关，排除性约束不成立，已标 verdict=不采用。"
+  ],
+  "figures": {
+    "files": [
+      "release\\figs\\traffic_hourly.png",
+      "release\\figs\\price_vs_qty.png"
+    ],
+    "note": "matplotlib 使用系统中文字体（Microsoft YaHei/SimHei），图内标签为中文"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "seed": 20260701,
+  "version": "1.0",
+  "hour_factor": {
+    "8": 1.0002940864614196e-06,
+    "9": 0.0843347944295623,
+    "10": 0.13771248747131656,
+    "11": 0.10788771898938287,
+    "12": 0.05598946090150504,
+    "13": 0.04051991285437919,
+    "14": 0.047579988516623886,
+    "15": 0.07072079191282236,
+    "16": 0.09423970647370328,
+    "17": 0.1056650655292656,
+    "18": 0.10222905534227063,
+    "19": 0.07089784396612604,
+    "20": 0.06079387339877924,
+    "21": 0.021428299920176534
+  },
+  "hour_source": "calibration:hourly_traffic.json+hour8_assumption+by_weekday",
+  "weekday_factor": {
+    "0": 0.8998872977533657,
+    "1": 0.8684259028489235,
+    "2": 0.8923784062035687,
+    "3": 0.8626935713815241,
+    "4": 0.9703317891861246,
+    "5": 1.2743788183343778,
+    "6": 1.2319042142921155
+  },
+  "weekday_factor_source": "data/seed/calibration/hourly_traffic.json by_weekday",
+  "season_amplitude": 0.1,
+  "coverage": 1.18,
+  "arrival_sigma": 0.18,
+  "push_lift": 0.15,
+  "item_bias_sigma": 0.1,
+  "member_base_prob": 0.55,
+  "basket_spec": {
+    "斤": {
+      "kind": "gamma",
+      "mean": 1.35,
+      "cv": 0.45,
+      "scale_units": 100
+    },
+    "个": {
+      "kind": "discrete",
+      "pmf": {
+        "1": 0.55,
+        "2": 0.3,
+        "3": 0.11,
+        "4": 0.04
+      },
+      "scale_units": 1,
+      "mean": 1.6400000000000001
+    },
+    "盒": {
+      "kind": "discrete",
+      "pmf": {
+        "1": 0.72,
+        "2": 0.22,
+        "3": 0.06
+      },
+      "scale_units": 1,
+      "mean": 1.3399999999999999
+    }
+  },
+  "noise_fingerprint": "ee6c4ba09455e60d",
+  "stockout_days": 85,
+  "summary": {
+    "days": 120.0,
+    "avg_orders_per_day": 448.525,
+    "avg_sold_units_per_day": 610.519333,
+    "avg_demand_units_per_day": 619.018333,
+    "stockout_days": 85.0,
+    "stockout_rate_units": 0.01373,
+    "scrap_units": 7184.6,
+    "arrival_units": 83798.1,
+    "loss_rate": 0.085737,
+    "avg_discount_depth_all": 0.10689,
+    "avg_discount_depth_discounted": 0.169537,
+    "revenue": 618166.7349
+  }
+}

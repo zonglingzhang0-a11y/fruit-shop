@@ -1,0 +1,21 @@
+# 演示口径：数据落在磁盘文件里，重启后仍在（H2 文件库，MySQL 兼容模式）。
+# 启动时仍然重建表结构（schema-h2.sql），种子数据由 com.fruit.shop.support.SeedDataLoader 导入。
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/db/fruitshop;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  h2:
+    console:
+      enabled: true
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-h2.sql
+
+app:
+  seed:
+    # data/seed/shop_*.csv 存在时是否自动导入（无文件则跳过，不影响启动）
+    enabled: true
+    dir: ./data/seed

@@ -1,0 +1,49 @@
+# =============================================================================
+# 忽略规则（原则：**重数据与生成物不进仓库，可复现的命令进仓库**）
+#
+# 复现方式见 README「快速开始」：环境脚本 → 原始数据下载 → 校准 → 仿真 → 评测，
+# 下面被忽略的东西都能用脚本重新生成。
+# =============================================================================
+
+# --- 构建产物 ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- 本机环境产物（含本机路径与镜像选择，不该共享）---
+.tools.json
+.mvn/settings-local.xml
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+
+# --- 前端 ---
+node_modules/
+dist/
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+
+# --- 重数据（可用脚本重新生成，避免把 100MB+ 塞进 git 历史）---
+# 原始竞赛附件 38MB：按 README 里的 GitHub Contents API 命令重新下载
+data/raw/
+# 清洗中间产物 54MB：scripts/prepare_raw_data.py 可重跑
+data/interim/
+# H2 演示数据库：启动时自动重建并导入种子
+data/db/
+
+# 保留 data/seed/ 下的种子数据（合计约 5.8MB）：
+# 这样 clone 下来直接启动就有 120 天演示数据、看板也有三策略对比，不必先跑仿真。
+# 若想进一步瘦身，取消下面两行注释即可（代价：需先跑 simulator.py 与 export_strategy_stats.py）。
+# data/seed/
+# data/seed/*.csv
+
+# --- 约束前后对照备份（结论已进 release/，这两份只作答辩对照）---
+release/_*.md
+
+# --- 临时文件 ---
+tmp-*
+*.log
