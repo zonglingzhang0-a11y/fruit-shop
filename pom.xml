@@ -13,7 +13,7 @@
 
   <groupId>com.fruit</groupId>
   <artifactId>fruit-shop</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>fruit-shop</name>
   <description>街边水果店临期果品动态定价与到店客流适配推送系统（课程设计）</description>
 

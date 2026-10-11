@@ -47,3 +47,6 @@ release/_*.md
 # --- 临时文件 ---
 tmp-*
 *.log
+
+# 打包产物（GitHub Release 的附件就是它，不进仓库）
+release/dist/

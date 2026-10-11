@@ -1,7 +1,7 @@
 {
   "name": "fruit-shop-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "街边水果店临期果品动态定价与到店客流适配推送系统 —— 店长工作台",
   "scripts": {
