@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import { defaultBizDate } from '../utils/bizDate'
@@ -15,6 +15,12 @@ const discountRate = ref(0.7)
 const preview = ref(null)
 const history = ref([])
 
+// 预览 = 建计划（push_task）。单品、日期或折扣一改，旧计划就不再对应页面上的内容，
+// 必须作废、重新预览，避免"预览的是 A、发出去的是 B"
+watch([itemId, bizDate, discountRate], () => {
+  preview.value = null
+})
+
 // 合规约束（docs/05）：单会员每日上限、静默时段、可退订
 const dailyLimit = 2
 const quietHours = '22:00-08:00'
@@ -29,6 +35,7 @@ async function doPreview() {
   try {
     preview.value = await api.previewPush({
       itemId: itemId.value,
+      bizDate: bizDate.value,
       discountRate: discountRate.value,
       targetCount: 20
     })
@@ -41,17 +48,23 @@ async function doPreview() {
 }
 
 async function doSend() {
-  if (!preview.value) return
+  if (!preview.value?.taskId) return
   sending.value = true
   try {
+    // 发送预览时建好的那条计划（taskId），而不是再现拼一条新计划
     const res = await api.sendPush({
-      bizDate: bizDate.value,
-      itemId: itemId.value,
-      discountRate: discountRate.value,
-      memberIds: (preview.value.targets || []).map((t) => t.memberId)
+      taskId: preview.value.taskId,
+      bizDate: preview.value.bizDate || bizDate.value,
+      discountRate: discountRate.value
     })
     ElMessage.success(`已发送 ${res?.sent ?? 0} 条；因频次上限跳过 ${res?.skippedByLimit ?? 0} 条，因静默时段跳过 ${res?.skippedByQuietHours ?? 0} 条`)
     history.value.unshift({ bizDate: bizDate.value, ...res, preview: preview.value })
+    if (res?.taskStatus === 'SENT') {
+      // 计划已发送，再点也只会命中幂等，直接收起预览
+      preview.value = null
+    }
+  } catch (e) {
+    ElMessage.error('发送失败：' + (e?.message || e))
   } finally {
     sending.value = false
   }
@@ -86,6 +99,15 @@ onMounted(() => {})
 
       <el-alert v-if="error" :title="error" type="warning" :closable="false" show-icon />
 
+      <el-alert
+        v-if="preview && preview.priceNote"
+        :title="preview.priceNote"
+        :type="preview.priceSource === 'CONFIRMED' ? 'success' : 'warning'"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 12px"
+      />
+
       <div v-if="preview" class="preview">
         <el-card shadow="never" class="copy-card">
           <template #header>
@@ -118,6 +140,7 @@ onMounted(() => {})
       <template #header>本次会话发送记录</template>
       <el-table :data="history" border size="small">
         <el-table-column prop="bizDate" label="日期" width="120" />
+        <el-table-column prop="taskId" label="计划" width="80" />
         <el-table-column label="发送" width="80">
           <template #default="{ row }">{{ row.sent ?? '-' }}</template>
         </el-table-column>
