@@ -12,7 +12,9 @@ import com.fruit.shop.member.domain.MemberPref;
 import com.fruit.shop.member.mapper.MemberMapper;
 import com.fruit.shop.member.mapper.MemberPrefMapper;
 import com.fruit.shop.pricing.PricingPolicy;
+import com.fruit.shop.pricing.domain.PricingDecision;
 import com.fruit.shop.pricing.domain.PricingSuggestion;
+import com.fruit.shop.pricing.mapper.PricingDecisionMapper;
 import com.fruit.shop.pricing.mapper.PricingSuggestionMapper;
 import com.fruit.shop.pricing.strategy.RuleBasedPricingStrategy;
 import com.fruit.shop.push.domain.PushLog;
@@ -70,6 +72,14 @@ import java.util.Objects;
  * <p>推送对象（docs/01 规则 6）：买过该品类（{@code member_pref} 命中）且 {@code push_enabled=1} 的会员优先单独推送；
  * 没有任何偏好记录的会员只参与"全店级"群发文案（{@code push_log.member_id} 为 NULL），不单独打扰。
  *
+ * <p>推送价格口径（与顾客端 H5 特价页同一条硬规则，见 {@code OnSaleService}）：
+ * <ul>
+ *   <li>该单品当天有店主确认过的定价决策 → 文案价格<b>一律取最新决策的 final_price</b>，请求里手填的折扣被忽略；</li>
+ *   <li>还没有确认价 → 才按手填折扣/剩余天数档位算，并且同样套用最低折扣线 {@code app.pricing.min-discount-rate}，
+ *       响应里 {@code priceSource=UNCONFIRMED} 明确告知"该价格未经店主确认"；</li>
+ *   <li>发送时按同一口径重新取价并重写群发文案：预览后店主改了价，发出去的是改后的价；单品已无在售库存则不发送。</li>
+ * </ul>
+ *
  * <p>本类不做任何定时/自动动作：没有任何 {@code @Scheduled}，只有显式调用接口才会写 push_task / push_log
  * （docs/05 NFR-03、docs/07 第 2 节）。文案生成走 {@link PushCopyWriter} 策略口子：注入的是接口，
  * 模板实现只作兜底，因此把"大模型文案"换成真实 LLM 时本类不需要改。
@@ -98,6 +108,12 @@ public class PushService {
 
     private static final String BUCKET_OTHER = "OTHER";
 
+    /** 推送价格来源：店主已确认（与顾客端 H5 显示一致）。 */
+    public static final String PRICE_CONFIRMED = "CONFIRMED";
+
+    /** 推送价格来源：尚无店主确认价，按折扣试算（已套最低折扣线）。 */
+    public static final String PRICE_UNCONFIRMED = "UNCONFIRMED";
+
     /** push_task.reason 列宽。 */
     private static final int REASON_MAX = 128;
 
@@ -116,6 +132,7 @@ public class PushService {
     private final TrafficService trafficService;
     private final ItemService itemService;
     private final PricingSuggestionMapper suggestionMapper;
+    private final PricingDecisionMapper decisionMapper;
     private final PushCopyWriter copyWriter;
     private final TemplatePushCopyWriter templateWriter;
     private final PushPolicy pushPolicy;
@@ -130,6 +147,7 @@ public class PushService {
                        TrafficService trafficService,
                        ItemService itemService,
                        PricingSuggestionMapper suggestionMapper,
+                       PricingDecisionMapper decisionMapper,
                        PushCopyWriter copyWriter,
                        TemplatePushCopyWriter templateWriter,
                        PushPolicy pushPolicy,
@@ -143,6 +161,7 @@ public class PushService {
         this.trafficService = trafficService;
         this.itemService = itemService;
         this.suggestionMapper = suggestionMapper;
+        this.decisionMapper = decisionMapper;
         this.copyWriter = copyWriter;
         this.templateWriter = templateWriter;
         this.pushPolicy = pushPolicy;
@@ -166,11 +185,14 @@ public class PushService {
         int targetLimit = request.getTargetCount() == null || request.getTargetCount() <= 0
                 ? DEFAULT_PREVIEW_TARGETS : request.getTargetCount();
 
-        FruitBatch batch = nearestOnSaleBatch(item.getId());
-        Integer daysLeft = batch == null ? null : BatchService.daysLeft(bizDate, batch.getExpireDate());
-        BigDecimal rate = resolveDiscount(request.getDiscountRate(), daysLeft);
-        BigDecimal price = PricingPolicy.priceOf(item.getBasePrice(), rate);
-        PricingSuggestion suggestion = latestSuggestion(bizDate, item.getId());
+        PriceQuote quote = quotePrice(item, bizDate, request.getDiscountRate());
+        FruitBatch batch = quote.batch();
+        Integer daysLeft = quote.daysLeft();
+        BigDecimal rate = quote.rate();
+        BigDecimal price = quote.price();
+        Long suggestionId = quote.suggestionId() != null
+                ? quote.suggestionId()
+                : idOf(latestSuggestion(bizDate, item.getId()));
 
         // 计划时间：当天高峰小时前 30~60 分钟（TrafficService 给的是"高峰前 1 小时"）
         PeakResponse peaks = trafficService.peaks(bizDate);
@@ -248,7 +270,7 @@ public class PushService {
         task.setBizDate(bizDate);
         task.setRelatedItemId(item.getId());
         task.setRelatedBatchId(batch == null ? null : batch.getId());
-        task.setRelatedSuggestionId(suggestion == null ? null : suggestion.getId());
+        task.setRelatedSuggestionId(suggestionId);
         task.setChannel(PushPolicy.CHANNEL_IN_APP);
         task.setPlanTime(plan.time());
         task.setReason(planReason(plan, candidateCount, item.getCategoryName(), targets.size(), groupOnly));
@@ -261,8 +283,7 @@ public class PushService {
 
         List<Long> candidateIds = targets.stream().map(PushTarget::memberId).toList();
         log.info("[push] 建计划 taskId={} bizDate={} planTime={} 候选={} 可发={} 计划目标={} 建议={} 草稿=false",
-                task.getId(), bizDate, plan.time(), candidateCount, sendableCount, targets.size(),
-                suggestion == null ? null : suggestion.getId());
+                task.getId(), bizDate, plan.time(), candidateCount, sendableCount, targets.size(), suggestionId);
 
         return new PushPreviewResponse(
                 groupCopy.title(), groupCopy.content(), targets.size(), targets,
@@ -276,7 +297,8 @@ public class PushService {
                 task.getId(), task.getPlanTime(), task.getReason(), task.getAudienceRule(), task.getStatus(),
                 task.getRelatedSuggestionId(), candidateIds,
                 "预览只写一条 push_task（status=PLANNED）：不发送、不写 push_log、不占会员每日额度；"
-                        + "确认后用 POST /api/push/send 传 taskId 发送。");
+                        + "确认后用 POST /api/push/send 传 taskId 发送。",
+                quote.source(), quote.decisionId(), quote.note());
     }
 
     // ------------------------------------------------------------------ 10. 发送 = 写日志
@@ -351,6 +373,9 @@ public class PushService {
                         request.getDiscountRate());
                 tally.merge(outcome);
                 primaryTaskStatus = task.getStatus();
+                if (outcome.priceNote != null) {
+                    notes.add("计划 #" + task.getId() + " " + outcome.priceNote);
+                }
                 notes.add("计划 #" + task.getId() + "（" + task.getBizDate() + "）按选人规则复算 "
                         + audience.size() + " 位目标会员，状态 " + task.getStatus());
             }
@@ -381,21 +406,15 @@ public class PushService {
             Integer pushHour = firstPeakHour(peaks);
             String hint = timeHint(pushHour, peaks);
 
-            FruitBatch batch = nearestOnSaleBatch(item.getId());
-            Integer daysLeft = batch == null ? null : BatchService.daysLeft(adhocDate, batch.getExpireDate());
-            BigDecimal rate = resolveDiscount(request.getDiscountRate(), daysLeft);
-            PushCopy groupCopy = writeCopy(new PushCopyRequest(
-                    props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
-                    item.getBasePrice(), PricingPolicy.priceOf(item.getBasePrice(), rate), rate,
-                    PricingPolicy.discountLabel(rate), daysLeft,
-                    batch == null ? null : batch.getExpireDate(), batch == null ? null : batch.getRemainQty(),
-                    null, hint, PushPolicy.CHANNEL_GROUP_TEXT));
+            PriceQuote quote = quotePrice(item, adhocDate, request.getDiscountRate());
+            FruitBatch batch = quote.batch();
+            PushCopy groupCopy = groupCopy(item, quote, hint);
 
             PushTask task = new PushTask();
             task.setBizDate(adhocDate);
             task.setRelatedItemId(item.getId());
             task.setRelatedBatchId(batch == null ? null : batch.getId());
-            task.setRelatedSuggestionId(null);
+            task.setRelatedSuggestionId(quote.suggestionId());
             task.setChannel(PushPolicy.CHANNEL_IN_APP);
             task.setPlanTime(sendAt);
             task.setAudienceRule(audienceRuleText(item.getCategoryName(), audience.size()));
@@ -412,6 +431,9 @@ public class PushService {
             Outcome outcome = sendTask(task, item, audience, adhocDate, sendAt, quiet, includeGroup,
                     request.getDiscountRate());
             tally.merge(outcome);
+            if (outcome.priceNote != null) {
+                notes.add(outcome.priceNote);
+            }
             primaryTaskId = task.getId();
             primaryPlanTime = task.getPlanTime();
             primaryTaskStatus = task.getStatus();
@@ -449,12 +471,30 @@ public class PushService {
     private Outcome sendTask(PushTask task, FruitItem item, List<Member> audience, LocalDate bizDate,
                              LocalDateTime sendAt, boolean quiet, boolean includeGroupText, BigDecimal requestedRate) {
         Outcome outcome = new Outcome();
-        FruitBatch batch = nearestOnSaleBatch(item.getId());
-        Integer daysLeft = batch == null ? null : BatchService.daysLeft(bizDate, batch.getExpireDate());
-        BigDecimal rate = resolveDiscount(requestedRate, daysLeft);
-        BigDecimal price = PricingPolicy.priceOf(item.getBasePrice(), rate);
+        // 发送前按同一口径重新取价、复核库存：预览之后店主可能改过价，或者批次已经卖空
+        PriceQuote quote = quotePrice(item, bizDate, requestedRate);
+        FruitBatch batch = quote.batch();
+        if (batch == null) {
+            outcome.skippedOther++;
+            outcome.skipped.add(new PushSkipItem(null, "计划 #" + task.getId() + " 无在售库存", null,
+                    "「" + item.getItemName() + "」已没有在售库存，不发送（避免推送无货商品），计划保持 PLANNED",
+                    BUCKET_OTHER, null));
+            log.info("[push] 计划 #{} 单品 {} 无在售库存，拒绝发送", task.getId(), item.getItemName());
+            return outcome;
+        }
+        Integer daysLeft = quote.daysLeft();
+        BigDecimal rate = quote.rate();
+        BigDecimal price = quote.price();
+        outcome.priceNote = quote.note();
         PeakResponse peaks = trafficService.peaks(bizDate);
         String hint = timeHint(firstPeakHour(peaks), peaks);
+        PushCopy group = groupCopy(item, quote, hint);
+        task.setTitle(group.title());
+        task.setContent(group.content());
+        task.setRelatedBatchId(batch.getId());
+        if (quote.suggestionId() != null) {
+            task.setRelatedSuggestionId(quote.suggestionId());
+        }
 
         for (Member member : audience) {
             int sentToday = pushPolicy.sentToday(member.getId(), bizDate);
@@ -511,6 +551,8 @@ public class PushService {
             task.setSentAt(sendAt);
             taskMapper.updateById(task);
         } else {
+            // 没送达也要把按最新价重写的文案存回计划，避免计划里留着过期价格
+            taskMapper.updateById(task);
             log.info("[push] 计划 #{} 本次 0 条送达（限频 {} 静默 {} 退订 {}），保持 PLANNED 可重发",
                     task.getId(), outcome.skippedLimit, outcome.skippedQuiet, outcome.skippedUnsub);
         }
@@ -699,14 +741,75 @@ public class PushService {
         return String.join("、", parts);
     }
 
-    /** 最近一个在售批次（剩余天数最少、最急的那个），用于算剩余天数与文案。 */
-    private FruitBatch nearestOnSaleBatch(Long itemId) {
-        return batchMapper.selectOne(Wrappers.<FruitBatch>lambdaQuery()
-                .eq(FruitBatch::getItemId, itemId)
+    /**
+     * 推送用的价格（预览、现拼、发送三处共用这一个实现，不允许各算一套）。
+     * 有店主确认价 → 取该业务日该单品在售批次上最新一条决策的 final_price；
+     * 否则按手填折扣 / 剩余天数档位，并套用最低折扣线。
+     */
+    private PriceQuote quotePrice(FruitItem item, LocalDate bizDate, BigDecimal requestedRate) {
+        List<FruitBatch> onSale = batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()
+                .eq(FruitBatch::getItemId, item.getId())
                 .eq(FruitBatch::getStatus, "ON_SALE")
                 .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
-                .orderByAsc(FruitBatch::getExpireDate)
-                .last("LIMIT 1"));
+                .orderByAsc(FruitBatch::getExpireDate));
+        BigDecimal basePrice = item.getBasePrice();
+
+        if (!onSale.isEmpty() && basePrice != null) {
+            Map<Long, FruitBatch> batchById = new HashMap<>();
+            onSale.forEach(b -> batchById.put(b.getId(), b));
+            List<PricingSuggestion> suggestions = suggestionMapper.selectList(Wrappers.<PricingSuggestion>lambdaQuery()
+                    .eq(PricingSuggestion::getBizDate, bizDate)
+                    .eq(PricingSuggestion::getItemId, item.getId())
+                    .in(PricingSuggestion::getBatchId, new ArrayList<>(batchById.keySet())));
+            if (!suggestions.isEmpty()) {
+                Map<Long, PricingSuggestion> suggestionById = new HashMap<>();
+                suggestions.forEach(sg -> suggestionById.put(sg.getId(), sg));
+                PricingDecision decision = decisionMapper.selectOne(Wrappers.<PricingDecision>lambdaQuery()
+                        .in(PricingDecision::getSuggestionId, new ArrayList<>(suggestionById.keySet()))
+                        .orderByDesc(PricingDecision::getId)
+                        .last("LIMIT 1"));
+                if (decision != null && decision.getFinalPrice() != null) {
+                    PricingSuggestion suggestion = suggestionById.get(decision.getSuggestionId());
+                    FruitBatch batch = batchById.get(suggestion.getBatchId());
+                    BigDecimal price = PricingPolicy.round2(decision.getFinalPrice());
+                    BigDecimal rate = PricingPolicy.rateOf(price, basePrice);
+                    String note = "价格取店主确认价 ¥" + PricingPolicy.money(price)
+                            + "（定价决策 #" + decision.getId() + "，批次 " + batch.getBatchNo() + "）";
+                    if (requestedRate != null && PricingPolicy.toCandidate(requestedRate).compareTo(rate) != 0) {
+                        note += "；请求里的折扣 " + requestedRate.toPlainString() + " 已忽略，推送价格必须与店主确认价一致";
+                    }
+                    return new PriceQuote(batch, BatchService.daysLeft(bizDate, batch.getExpireDate()),
+                            rate, price, PRICE_CONFIRMED, decision.getId(), suggestion.getId(), note);
+                }
+            }
+        }
+
+        FruitBatch batch = onSale.isEmpty() ? null : onSale.get(0);
+        Integer daysLeft = batch == null ? null : BatchService.daysLeft(bizDate, batch.getExpireDate());
+        PricingPolicy.FloorClamp clamp = PricingPolicy.applyFloor(
+                resolveDiscount(requestedRate, daysLeft), props.minDiscountRate());
+        BigDecimal rate = clamp.rate();
+        String note = "该单品 " + bizDate + " 还没有店主确认价，文案按" + PricingPolicy.discountLabel(rate)
+                + "试算（未经店主确认，建议先在定价页确认价格再发送）";
+        if (clamp.floorHit()) {
+            note += "；请求折扣 " + clamp.rawRate().toPlainString() + " 低于最低折扣线，已抬到 " + rate.toPlainString();
+        }
+        return new PriceQuote(batch, daysLeft, rate, PricingPolicy.priceOf(basePrice, rate),
+                PRICE_UNCONFIRMED, null, null, note);
+    }
+
+    /** 全店群发文案（预览、现拼、发送共用）。 */
+    private PushCopy groupCopy(FruitItem item, PriceQuote quote, String hint) {
+        FruitBatch batch = quote.batch();
+        return writeCopy(new PushCopyRequest(
+                props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
+                item.getBasePrice(), quote.price(), quote.rate(), PricingPolicy.discountLabel(quote.rate()),
+                quote.daysLeft(), batch == null ? null : batch.getExpireDate(),
+                batch == null ? null : batch.getRemainQty(), null, hint, PushPolicy.CHANNEL_GROUP_TEXT));
+    }
+
+    private static Long idOf(PricingSuggestion suggestion) {
+        return suggestion == null ? null : suggestion.getId();
     }
 
     /** 折扣：显式传了就用（并对齐候选档），否则按剩余天数用 RULE 档位，再退到固定档。 */
@@ -783,6 +886,11 @@ public class PushService {
     private record Block(String reason, String bucket, String skipCode) {
     }
 
+    /** 推送价格：用哪个批次、什么价、价格来源（CONFIRMED / UNCONFIRMED）及说明。 */
+    private record PriceQuote(FruitBatch batch, Integer daysLeft, BigDecimal rate, BigDecimal price,
+                              String source, Long decisionId, Long suggestionId, String note) {
+    }
+
     /** 计划时间 + 依据。 */
     private record PlanTime(LocalDateTime time, String reason) {
     }
@@ -809,6 +917,9 @@ public class PushService {
         private int skippedOther;
 
         private Long groupLogId;
+
+        /** 本计划的价格口径说明（只在单计划内使用，不参与 merge）。 */
+        private String priceNote;
 
         private void merge(Outcome other) {
             logIds.addAll(other.logIds);
