@@ -7,6 +7,7 @@ import com.fruit.shop.sales.domain.StrategyDailyStat;
 import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,12 +75,10 @@ public class StrategyStatService {
             return false;
         }
         String code = strategy.trim().toUpperCase();
-        StrategyDailyStat stat = statMapper.selectOne(Wrappers.<StrategyDailyStat>lambdaQuery()
-                .eq(StrategyDailyStat::getBizDate, bizDate)
-                .eq(StrategyDailyStat::getStrategy, code)
-                .last("LIMIT 1"));
-        if (stat == null) {
-            stat = new StrategyDailyStat();
+        // 先原子 UPDATE；当天还没有该策略的行再 INSERT。并发下两个请求可能同时 INSERT，
+        // 输家撞唯一索引 uk_stat_date_strategy 后回到 UPDATE，保证累加不丢。
+        if (statMapper.accumulate(bizDate, code, soldQty, nz(revenue), nz(cost)) == 0) {
+            StrategyDailyStat stat = new StrategyDailyStat();
             stat.setBizDate(bizDate);
             stat.setStrategy(code);
             stat.setSoldQty(soldQty);
@@ -89,14 +88,11 @@ public class StrategyStatService {
             stat.setGrossProfit(nz(revenue).subtract(nz(cost)));
             stat.setScrapRate(scrapRate(BigDecimal.ZERO, soldQty));
             stat.setStockoutRate(BigDecimal.ZERO);
-            statMapper.insert(stat);
-        } else {
-            stat.setSoldQty(nz(stat.getSoldQty()).add(soldQty));
-            stat.setRevenue(nz(stat.getRevenue()).add(nz(revenue)));
-            stat.setCost(nz(stat.getCost()).add(nz(cost)));
-            stat.setGrossProfit(stat.getRevenue().subtract(stat.getCost()));
-            stat.setScrapRate(scrapRate(stat.getScrapQty(), stat.getSoldQty()));
-            statMapper.updateById(stat);
+            try {
+                statMapper.insert(stat);
+            } catch (DuplicateKeyException race) {
+                statMapper.accumulate(bizDate, code, soldQty, nz(revenue), nz(cost));
+            }
         }
         log.debug("[sales] 统计累加 bizDate={} strategy={} soldQty={} revenue={}", bizDate, code, soldQty, revenue);
         return true;

@@ -44,6 +44,7 @@ import java.util.Map;
  * <ul>
  *   <li>按 batch_id 扣减 {@code fruit_batch.remain_qty}；扣到 0 时状态置 {@code SOLD_OUT}（退货回补后回到 ON_SALE）；</li>
  *   <li>数量超过现存量时按现存量扣减（避免负库存），并在响应里用 {@code overSell=true} 明确告知，不静默改数；</li>
+ *   <li>扣减前对批次加行锁（{@code SELECT ... FOR UPDATE}），并发回流排队执行，不会互相覆盖库存；</li>
  *   <li>每笔回流都写 {@code sales_record}，并按"该批次最近一条定价建议"的策略累加 {@code strategy_daily_stat}，
  *       让效果看板能直接对比 FIXED/RULE/MODEL。</li>
  * </ul>
@@ -120,7 +121,9 @@ public class SalesService {
         FruitBatch batch = null;
         boolean autoPicked = false;
         if (request.getBatchId() != null) {
-            batch = batchService.requireBatch(request.getBatchId());
+            batchService.requireBatch(request.getBatchId());
+            // 行锁：同一批次的并发回流在这里排队，下面的读—改—写才安全
+            batch = batchMapper.selectByIdForUpdate(request.getBatchId());
             if (itemId == null) {
                 itemId = batch.getItemId();
             } else if (!itemId.equals(batch.getItemId())) {
@@ -132,7 +135,7 @@ public class SalesService {
                 throw BusinessException.badRequest("itemId 与 batchId 至少传一个");
             }
             itemService.requireItem(itemId);
-            batch = fifoBatch(itemId);
+            batch = lockFifoBatch(itemId);
             autoPicked = batch != null;
         }
         FruitItem item = itemId == null ? null : itemMapper.selectById(itemId);
@@ -393,6 +396,25 @@ public class SalesService {
     }
 
     /** FIFO：该商品最早到期的在售批次。 */
+    /**
+     * 先进先出选批次并加行锁。选中与加锁之间该批次可能被并发请求卖空，
+     * 所以锁到之后再核对一次；不再在售就换下一个批次（有限次重试，批次数有限）。
+     */
+    private FruitBatch lockFifoBatch(Long itemId) {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            FruitBatch candidate = fifoBatch(itemId);
+            if (candidate == null) {
+                return null;
+            }
+            FruitBatch locked = batchMapper.selectByIdForUpdate(candidate.getId());
+            if (locked != null && STATUS_ON_SALE.equals(locked.getStatus())
+                    && nz(locked.getRemainQty()).compareTo(BigDecimal.ZERO) > 0) {
+                return locked;
+            }
+        }
+        return null;
+    }
+
     private FruitBatch fifoBatch(Long itemId) {
         return batchMapper.selectOne(Wrappers.<FruitBatch>lambdaQuery()
                 .eq(FruitBatch::getItemId, itemId)
