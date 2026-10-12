@@ -59,7 +59,7 @@ class SalesConcurrencyTest {
     @Test
     @DisplayName("并发回流：10 笔各卖 1，库存 20 → 10，销售流水 10 条")
     void concurrentFeedbackDoesNotLoseDeductions() throws Exception {
-        LocalDate bizDate = LocalDate.of(2041, 5, 6);
+        LocalDate bizDate = LocalDate.of(2033, 5, 6);
         FruitItem item = ShopFixtures.item(itemMapper, "并发测试柚", "并发测试类", "5.00", "12.80", 8);
         FruitBatch batch = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(2), 8, "20", "5.00");
 
@@ -75,7 +75,7 @@ class SalesConcurrencyTest {
     @Test
     @DisplayName("并发累加策略日统计：10 次各 +1，同一 (日期,策略) 只有一行且销量为 10、毛利同步累加")
     void concurrentStatAccumulateDoesNotLoseUpdates() throws Exception {
-        LocalDate bizDate = LocalDate.of(2041, 5, 8);
+        LocalDate bizDate = LocalDate.of(2033, 5, 8);
 
         runConcurrently(() -> {
             statService.accumulate(bizDate, "RULE", BigDecimal.ONE, new BigDecimal("11.52"), new BigDecimal("5.00"));
@@ -94,7 +94,7 @@ class SalesConcurrencyTest {
     @Test
     @DisplayName("并发超卖：库存 5，10 笔各卖 1，只有 5 笔真正扣减，库存不为负、批次转 SOLD_OUT")
     void concurrentFeedbackNeverOversells() throws Exception {
-        LocalDate bizDate = LocalDate.of(2041, 5, 7);
+        LocalDate bizDate = LocalDate.of(2033, 5, 7);
         FruitItem item = ShopFixtures.item(itemMapper, "并发超卖桃", "并发测试类", "5.00", "12.00", 8);
         FruitBatch batch = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(2), 8, "5", "5.00");
 

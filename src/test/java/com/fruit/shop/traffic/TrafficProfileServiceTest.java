@@ -110,16 +110,18 @@ class TrafficProfileServiceTest {
     @Test
     @DisplayName("重算是全表重建：换了窗口不会留下上一次的陈旧单元格，也不会撞唯一索引")
     void recomputeRebuildsTableWithoutStaleCells() {
-        LocalDate firstFrom = LocalDate.of(2035, 9, 3);
-        LocalDate firstTo = LocalDate.of(2035, 9, 4);
+        // 用 2036 年：原先的 2035-09-03/04 落在 BatchMetricsServiceTest 香蕉用例的近 7 天窗口里，
+        // 两个测试共用内存库，执行顺序一变就会把香蕉的有效营业天数从 7 改成 2
+        LocalDate firstFrom = LocalDate.of(2036, 9, 1);
+        LocalDate firstTo = LocalDate.of(2036, 9, 2);
         for (LocalDate day = firstFrom; !day.isAfter(firstTo); day = day.plusDays(1)) {
             ShopFixtures.traffic(trafficMapper, day, 9, 100, 80, false);
         }
         TrafficProfileResponse first = profileService.recompute(firstFrom, firstTo);
         assertThat(first.rowCount()).isEqualTo(2);
 
-        LocalDate secondFrom = LocalDate.of(2035, 9, 10);
-        LocalDate secondTo = LocalDate.of(2035, 9, 11);
+        LocalDate secondFrom = LocalDate.of(2036, 9, 8);
+        LocalDate secondTo = LocalDate.of(2036, 9, 9);
         for (LocalDate day = secondFrom; !day.isAfter(secondTo); day = day.plusDays(1)) {
             ShopFixtures.traffic(trafficMapper, day, 9, 20, 15, false);
             ShopFixtures.traffic(trafficMapper, day, 10, 60, 50, false);
