@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -103,6 +104,92 @@ class SchemaKeepExistingTest {
                 "--spring.h2.console.enabled=false")) {
             assertThat(columnExists(never, "sales_record", "request_no")).isFalse();
         }
+    }
+
+    @Test
+    @DisplayName("两份建表脚本的第一条 DROP 都是标志表 seed_load_log、最后一张建的也是它：脚本中途被打断不会留下标志")
+    void markerTableIsDroppedFirstAndCreatedLast() throws Exception {
+        for (String script : List.of("db/schema-h2.sql", "db/schema-mysql.sql")) {
+            String sql;
+            try (var in = new org.springframework.core.io.ClassPathResource(script).getInputStream()) {
+                sql = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            java.util.regex.Matcher drop = java.util.regex.Pattern.compile("(?m)^DROP TABLE IF EXISTS (\\w+);").matcher(sql);
+            assertThat(drop.find()).isTrue();
+            assertThat(drop.group(1)).as(script + " 第一条 DROP").isEqualTo("seed_load_log");
+            java.util.regex.Matcher create = java.util.regex.Pattern.compile("(?m)^CREATE TABLE (\\w+)").matcher(sql);
+            String last = null;
+            while (create.find()) {
+                last = create.group(1);
+            }
+            assertThat(last).as(script + " 最后一张表").isEqualTo("seed_load_log");
+        }
+    }
+
+    @Test
+    @DisplayName("重置中途被打断（标志表已删、部分表也删了）：下次以 keep-existing 启动会重新完整建表")
+    void interruptedResetIsRebuiltOnNextStart() {
+        String url = "jdbc:h2:file:" + tempDir.resolve("reset").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        try (ConfigurableApplicationContext first = start(url, true)) {
+            // 模拟 keep-existing=false 重置时脚本跑到一半：第一条删了标志表，又删了几张表，然后被打断
+            jdbc(first).execute("DROP TABLE seed_load_log");
+            jdbc(first).execute("DROP TABLE member");
+        }
+        try (ConfigurableApplicationContext again = start(url, true)) {
+            assertThat(tableCount(again, "member")).as("缺的表被重建").isEqualTo(1);
+            assertThat(tableCount(again, "seed_load_log")).isEqualTo(1);
+        }
+    }
+
+    @Test
+    @DisplayName("spring.sql.init.mode=embedded 且是文件库（非内嵌）：与 Spring Boot 一致，不补列、不建表")
+    void initModeEmbeddedSkipsNonEmbeddedDatabase() {
+        String url = "jdbc:h2:file:" + tempDir.resolve("embedded").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        try (ConfigurableApplicationContext old = start(url, true)) {
+            jdbc(old).execute("DROP INDEX uk_sales_request_no");
+            jdbc(old).execute("ALTER TABLE sales_record DROP COLUMN request_no");
+        }
+        try (ConfigurableApplicationContext embedded = new SpringApplicationBuilder(FruitShopApplication.class).run(
+                "--server.port=0", "--spring.datasource.url=" + url, H2_DRIVER, H2_USER, H2_PASSWORD, H2_SCHEMA,
+                "--app.db.keep-existing=true", "--spring.sql.init.mode=embedded",
+                "--app.seed.enabled=false", "--app.scan.enabled=false", "--spring.h2.console.enabled=false")) {
+            assertThat(columnExists(embedded, "sales_record", "request_no")).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("应用账号只有增删改查权限、建表用 spring.sql.init.username/password 的 DDL 账号：能正常建表启动")
+    void ddlRunsWithSqlInitCredentials() throws Exception {
+        String url = "jdbc:h2:file:" + tempDir.resolve("creds").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        // 管理员 sa/admin 建库，并建一个只有增删改查权限的应用账号 app/app
+        try (Connection c = DriverManager.getConnection(url, "sa", "admin"); Statement st = c.createStatement()) {
+            st.execute("CREATE USER app PASSWORD 'app'");
+            st.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA PUBLIC TO app");
+        }
+        String[] common = {"--server.port=0", "--spring.datasource.url=" + url, H2_DRIVER, H2_SCHEMA,
+                "--spring.datasource.username=app", "--spring.datasource.password=app",
+                "--app.db.keep-existing=true", "--app.seed.enabled=false", "--app.scan.enabled=false",
+                "--spring.h2.console.enabled=false"};
+
+        // 不配 DDL 账号：用应用账号去 DROP/CREATE，没权限，启动失败
+        assertThatThrownBy(() -> new SpringApplicationBuilder(FruitShopApplication.class).run(common).close())
+                .isNotNull();
+        String[] withDdl = java.util.stream.Stream.concat(java.util.Arrays.stream(common),
+                java.util.stream.Stream.of("--spring.sql.init.username=sa", "--spring.sql.init.password=admin"))
+                .toArray(String[]::new);
+        try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(FruitShopApplication.class).run(withDdl)) {
+            assertThat(jdbc(ctx).queryForObject("SELECT COUNT(*) FROM fruit_item", Integer.class))
+                    .as("表由 DDL 账号建好，应用账号能正常读").isZero();
+        }
+    }
+
+    private static int tableCount(ConfigurableApplicationContext context, String table) {
+        Integer count = jdbc(context).queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE LOWER(TABLE_NAME) = ?", Integer.class, table);
+        return count == null ? 0 : count;
     }
 
     @Test

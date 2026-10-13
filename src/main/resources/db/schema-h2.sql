@@ -12,6 +12,12 @@
 --   D. 新增 shop_traffic_profile：按"星期 × 小时"的客流规律 —— 对应参考表 traffic_profile
 -- =============================================================================
 
+-- 先删"建表完成"标志表（seed_load_log，见 com.fruit.shop.config.SchemaInitConfig.MARKER_TABLE）：
+-- 本脚本是逐条 DROP/CREATE、不在一个事务里，中途被打断（Ctrl-C、权限不足、锁等待超时）时，
+-- 标志表必须已经不在，下次以 keep-existing 启动才会重新完整建表，而不是把半套表当成完整结构。
+-- 它在脚本末尾重新创建，是最后一张表。
+DROP TABLE IF EXISTS seed_load_log;
+
 -- 0. 自检表 -------------------------------------------------------------------
 DROP TABLE IF EXISTS health_check;
 CREATE TABLE health_check (

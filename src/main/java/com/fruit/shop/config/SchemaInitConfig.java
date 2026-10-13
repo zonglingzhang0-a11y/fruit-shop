@@ -7,9 +7,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.sql.init.SqlDataSourceScriptDatabaseInitializer;
 import org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -36,8 +39,14 @@ import java.util.Locale;
  *   <li>需要回到干净的演示数据时，显式加启动参数 {@code --app.db.keep-existing=false} 重置一次。</li>
  * </ul>
  *
- * <p>与 Spring Boot 自带的初始化保持同样的开关：{@code spring.sql.init.enabled=false} 时不注册本初始化器，
- * {@code spring.sql.init.mode=never} 时既不跑建表脚本、也不补列。
+ * <p>与 Spring Boot 自带的初始化保持同样的开关和账号口径：
+ * <ul>
+ *   <li>{@code spring.sql.init.enabled=false} 时不注册本初始化器；</li>
+ *   <li>{@code spring.sql.init.mode=never}，或 {@code embedded} 而当前不是内嵌库（MySQL、H2 文件库都不算内嵌）时，
+ *       既不跑建表脚本、也不补列；</li>
+ *   <li>配了 {@code spring.sql.init.username/password} 时，建表、补列、判断表是否存在都用这个账号
+ *       （应用连接池可以只给增删改查权限）。</li>
+ * </ul>
  *
  * <p><b>以后给表加列/加索引</b>：建表脚本（两份）里加上，同时在 {@link #COLUMNS} / {@link #INDEXES} 里登记一条，
  * 已有的库启动时就会自动补上。改列类型、删列这类变更不在这里做，需要 {@code --app.db.keep-existing=false} 重建。
@@ -49,8 +58,9 @@ public class SchemaInitConfig {
     private static final Logger log = LoggerFactory.getLogger(SchemaInitConfig.class);
 
     /**
-     * 用来判断"建表脚本已经完整跑过"的标志表：取建表脚本里<b>最后创建</b>的表。
-     * 建表脚本中途被打断时它还不存在，下次启动会重新完整建表，而不是保留半套表结构。
+     * 用来判断"建表脚本已经完整跑过"的标志表：建表脚本<b>第一条就删掉它、最后才重新创建它</b>。
+     * 不论是空库首次建表还是 {@code keep-existing=false} 重置，脚本中途被打断时它都不存在，
+     * 下次启动会重新完整建表，而不是把半套表当成完整结构。
      */
     static final String MARKER_TABLE = "seed_load_log";
 
@@ -82,17 +92,20 @@ public class SchemaInitConfig {
             DataSource dataSource,
             SqlInitializationProperties properties,
             @Value("${app.db.keep-existing:false}") boolean keepExisting) {
-        return new SqlDataSourceScriptDatabaseInitializer(dataSource, properties) {
+        DataSource initDataSource = initDataSource(dataSource, properties);
+        return new SqlDataSourceScriptDatabaseInitializer(initDataSource, properties) {
             @Override
             public boolean initializeDatabase() {
-                if (properties.getMode() == DatabaseInitializationMode.NEVER) {
+                DatabaseInitializationMode mode = properties.getMode();
+                if (mode == DatabaseInitializationMode.NEVER
+                        || (mode == DatabaseInitializationMode.EMBEDDED && !isEmbeddedDatabase())) {
                     return false;
                 }
                 // 判断失败时宁可启动失败，也不能当成空库去执行带 DROP TABLE 的建表脚本
-                if (keepExisting && tableExists(dataSource, MARKER_TABLE)) {
+                if (keepExisting && tableExists(initDataSource, MARKER_TABLE)) {
                     log.info("[db] app.db.keep-existing=true 且库中已有完整表结构，跳过建表脚本、保留现有数据"
                             + "（如需重置演示数据，启动时加 --app.db.keep-existing=false）");
-                    migrate(dataSource);
+                    migrate(initDataSource);
                     return false;
                 }
                 if (keepExisting) {
@@ -101,6 +114,21 @@ public class SchemaInitConfig {
                 return super.initializeDatabase();
             }
         };
+    }
+
+    /**
+     * 建表/补列用的数据源：与 Spring Boot 自带初始化同一口径——同时配了 {@code spring.sql.init.username} 和
+     * {@code password} 就用它们另建一个直连数据源（DDL 账号），否则沿用应用的连接池。
+     */
+    static DataSource initDataSource(DataSource dataSource, SqlInitializationProperties properties) {
+        if (StringUtils.hasText(properties.getUsername()) && StringUtils.hasText(properties.getPassword())) {
+            return DataSourceBuilder.derivedFrom(dataSource)
+                    .username(properties.getUsername())
+                    .password(properties.getPassword())
+                    .type(SimpleDriverDataSource.class)
+                    .build();
+        }
+        return dataSource;
     }
 
     /** 给保留下来的旧库补上缺的列和索引（已存在的跳过，可重复执行）。 */
