@@ -26,6 +26,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -77,6 +80,9 @@ class SalesIdempotencyTest {
 
     @Autowired
     private StrategyDailyStatMapper statMapper;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Test
     @DisplayName("顺序重复提交：第二次返回 duplicate=true 与首笔流水 id，库存只扣一次、流水只有一条")
@@ -229,8 +235,8 @@ class SalesIdempotencyTest {
     }
 
     @Test
-    @DisplayName("同一流水号的并发请求锁到不同批次（一半指定后到期批次、一半 FIFO 选先到期批次）：撞唯一索引的输家连同库存扣减整体回滚，总共只扣一次")
-    void losingDuplicateRollsBackItsStockDeduction() throws Exception {
+    @DisplayName("同一流水号、内容不完全相同的并发请求（一半指定后到期批次、一半 FIFO）：不论各自得到成功/重复/409，库存总共只扣一次")
+    void mixedConcurrentRequestsDeductOnce() throws Exception {
         LocalDate bizDate = LocalDate.of(2033, 7, 12);
         FruitItem item = ShopFixtures.item(itemMapper, "回滚幂等梨", ShopFixtures.unique("幂等类"), "4.00", "10.00", 8);
         FruitBatch early = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 8, "20", "4.00");
@@ -262,6 +268,68 @@ class SalesIdempotencyTest {
         assertThat(remainTotal).as("两个批次合计只扣了一笔的 2 件").isEqualByComparingTo("38");
         assertThat(salesMapper.selectCount(Wrappers.<SalesRecord>lambdaQuery()
                 .eq(SalesRecord::getRequestNo, "POS-ROLLBACK-1"))).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("确定性复现：输家已经扣了另一个批次的库存才撞唯一索引 → 整笔回滚（含扣减），新事务里返回首笔")
+    void loserThatAlreadyDeductedIsRolledBack() throws Exception {
+        LocalDate bizDate = LocalDate.of(2033, 7, 15);
+        FruitItem item = ShopFixtures.item(itemMapper, "确定性回滚梨", ShopFixtures.unique("幂等类"), "4.00", "10.00", 8);
+        FruitBatch early = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 8, "20", "4.00");
+        FruitBatch late = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(2), 8, "20", "4.00");
+        String requestNo = "POS-DETERMINISTIC-1";
+
+        ch.qos.logback.classic.Logger salesLog =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(SalesService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events =
+                new ch.qos.logback.core.read.ListAppender<>();
+        events.start();
+        salesLog.addAppender(events);
+
+        // 外层事务把"赢家"（指定后到期批次）拦在提交前：它的流水与扣减已写入但未提交
+        TransactionTemplate outer = new TransactionTemplate(transactionManager);
+        outer.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        CountDownLatch winnerWritten = new CountDownLatch(1);
+        CountDownLatch releaseWinner = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<SalesFeedbackResponse> winner = pool.submit(() -> outer.execute(status -> {
+                SalesFeedbackResponse r = salesService.feedback(
+                        feedback(bizDate, late.getId(), item.getId(), "2", "8.00", requestNo));
+                winnerWritten.countDown();
+                try {
+                    releaseWinner.await(30, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return r;
+            }));
+            assertThat(winnerWritten.await(30, TimeUnit.SECONDS)).isTrue();
+
+            // "输家"走 FIFO：锁先到期批次、看不到未提交的首笔 → 扣减先到期批次 → 插流水时等在唯一索引上
+            Future<SalesFeedbackResponse> loser = pool.submit(() -> salesService.feedback(
+                    feedback(bizDate, null, item.getId(), "2", "8.00", requestNo)));
+            Thread.sleep(300);
+            releaseWinner.countDown();
+
+            SalesFeedbackResponse first = winner.get(30, TimeUnit.SECONDS);
+            SalesFeedbackResponse second = loser.get(30, TimeUnit.SECONDS);
+
+            assertThat(events.list).as("必须真的走到'撞唯一索引 → 回滚 → 返回首笔'这条路径")
+                    .anySatisfy(e -> assertThat(e.getFormattedMessage()).contains(requestNo).contains("撞唯一索引后已回滚"));
+            assertThat(first.duplicate()).isFalse();
+            assertThat(second.duplicate()).isTrue();
+            assertThat(second.salesRecordId()).isEqualTo(first.salesRecordId());
+            assertThat(batchMapper.selectById(early.getId()).getRemainQty())
+                    .as("输家对先到期批次的扣减随回滚撤销").isEqualByComparingTo("20");
+            assertThat(batchMapper.selectById(late.getId()).getRemainQty()).isEqualByComparingTo("18");
+            assertThat(salesMapper.selectCount(Wrappers.<SalesRecord>lambdaQuery()
+                    .eq(SalesRecord::getRequestNo, requestNo))).isEqualTo(1);
+        } finally {
+            releaseWinner.countDown();
+            pool.shutdownNow();
+            salesLog.detachAppender(events);
+        }
     }
 
     @Test
