@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -101,6 +102,9 @@ public class SalesService {
         this.pricingService = pricingService;
         this.pushEffectService = pushEffectService;
         this.tx = new TransactionTemplate(transactionManager);
+        // 读已提交：锁到批次之后的普通查询（幂等查重、回读批次、FIFO 候选）要看到别的事务刚提交的数据。
+        // H2 默认就是读已提交；MySQL 默认可重复读会沿用事务里第一次读时的快照，读不到刚提交的首笔
+        this.tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
     // ------------------------------------------------------------------ 12. 销售回流

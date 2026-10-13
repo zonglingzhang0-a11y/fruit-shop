@@ -3,11 +3,9 @@ package com.fruit.shop.sales;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fruit.shop.pricing.domain.PricingSuggestion;
 import com.fruit.shop.pricing.mapper.PricingSuggestionMapper;
-import com.fruit.shop.sales.domain.StrategyDailyStat;
 import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,25 +73,9 @@ public class StrategyStatService {
             return false;
         }
         String code = strategy.trim().toUpperCase();
-        // 先原子 UPDATE；当天还没有该策略的行再 INSERT。并发下两个请求可能同时 INSERT，
-        // 输家撞唯一索引 uk_stat_date_strategy 后回到 UPDATE，保证累加不丢。
-        if (statMapper.accumulate(bizDate, code, soldQty, nz(revenue), nz(cost)) == 0) {
-            StrategyDailyStat stat = new StrategyDailyStat();
-            stat.setBizDate(bizDate);
-            stat.setStrategy(code);
-            stat.setSoldQty(soldQty);
-            stat.setScrapQty(BigDecimal.ZERO);
-            stat.setRevenue(nz(revenue));
-            stat.setCost(nz(cost));
-            stat.setGrossProfit(nz(revenue).subtract(nz(cost)));
-            stat.setScrapRate(scrapRate(BigDecimal.ZERO, soldQty));
-            stat.setStockoutRate(BigDecimal.ZERO);
-            try {
-                statMapper.insert(stat);
-            } catch (DuplicateKeyException race) {
-                statMapper.accumulate(bizDate, code, soldQty, nz(revenue), nz(cost));
-            }
-        }
+        // 一条语句完成"没有就插、有就累加"（INSERT ... ON DUPLICATE KEY UPDATE，H2 的 MySQL 模式同样支持）。
+        // 不用"先 UPDATE、0 行再 INSERT、撞索引再 UPDATE"：那种写法在 MySQL 可重复读下两个首笔并发会互相等间隙锁而死锁
+        statMapper.upsertAccumulate(bizDate, code, soldQty, nz(revenue), nz(cost));
         log.debug("[sales] 统计累加 bizDate={} strategy={} soldQty={} revenue={}", bizDate, code, soldQty, revenue);
         return true;
     }

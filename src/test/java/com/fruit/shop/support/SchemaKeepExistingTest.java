@@ -24,6 +24,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class SchemaKeepExistingTest {
 
+    /*
+     * 本类专测 H2 文件库，不论外面用哪个 profile 跑测试（例如 -Dspring.profiles.active=mysql 把全套测试跑在 MySQL 上），
+     * 都显式钉死 H2 的驱动、账号和建表脚本。
+     */
+    private static final String H2_DRIVER = "--spring.datasource.driver-class-name=org.h2.Driver";
+    private static final String H2_USER = "--spring.datasource.username=sa";
+    private static final String H2_PASSWORD = "--spring.datasource.password=";
+    private static final String H2_SCHEMA = "--spring.sql.init.schema-locations=classpath:db/schema-h2.sql";
+
     @TempDir
     Path tempDir;
 
@@ -60,12 +69,39 @@ class SchemaKeepExistingTest {
             assertThat(columnExists(old, "sales_record", "request_no")).isFalse();
         }
         try (ConfigurableApplicationContext migrated = start(url, true)) {
-            assertThat(columnExists(migrated, "sales_record", "request_no")).as("增量脚本补上了新列").isTrue();
+            assertThat(columnExists(migrated, "sales_record", "request_no")).as("补上了新列").isTrue();
+            assertThat(jdbc(migrated).queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.INDEXES WHERE LOWER(INDEX_NAME) = 'uk_sales_request_no'",
+                    Integer.class)).as("补上了唯一索引").isEqualTo(1);
+            jdbc(migrated).update("INSERT INTO sales_record (biz_date, sale_time, item_id, quantity, unit_price, request_no)"
+                    + " VALUES (DATE '2033-01-01', TIMESTAMP '2033-01-01 10:00:00', 1, 1, 1, 'MIG-UNIQ')");
+            assertThatThrownBy(() -> jdbc(migrated).update(
+                    "INSERT INTO sales_record (biz_date, sale_time, item_id, quantity, unit_price, request_no)"
+                            + " VALUES (DATE '2033-01-01', TIMESTAMP '2033-01-01 10:00:00', 1, 1, 1, 'MIG-UNIQ')"))
+                    .as("唯一索引真的生效").isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
             assertThat(jdbc(migrated).queryForObject(
                     "SELECT COUNT(*) FROM fruit_item WHERE item_code = 'KEEP-2'", Integer.class)).isEqualTo(1);
         }
         try (ConfigurableApplicationContext again = start(url, true)) {
             assertThat(columnExists(again, "sales_record", "request_no")).as("增量脚本可重复执行").isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("spring.sql.init.mode=never：保留旧库时也不补列、不跑建表脚本，与 Spring Boot 自带开关一致")
+    void initModeNeverTouchesNothing() {
+        String url = "jdbc:h2:file:" + tempDir.resolve("never").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        try (ConfigurableApplicationContext old = start(url, true)) {
+            jdbc(old).execute("DROP INDEX uk_sales_request_no");
+            jdbc(old).execute("ALTER TABLE sales_record DROP COLUMN request_no");
+        }
+        try (ConfigurableApplicationContext never = new SpringApplicationBuilder(FruitShopApplication.class).run(
+                "--server.port=0", "--spring.datasource.url=" + url, H2_DRIVER, H2_USER, H2_PASSWORD, H2_SCHEMA,
+                "--app.db.keep-existing=true",
+                "--spring.sql.init.mode=never", "--app.seed.enabled=false", "--app.scan.enabled=false",
+                "--spring.h2.console.enabled=false")) {
+            assertThat(columnExists(never, "sales_record", "request_no")).isFalse();
         }
     }
 
@@ -102,6 +138,7 @@ class SchemaKeepExistingTest {
         return new SpringApplicationBuilder(FruitShopApplication.class).run(
                 "--server.port=0",
                 "--spring.datasource.url=" + url,
+                H2_DRIVER, H2_USER, H2_PASSWORD, H2_SCHEMA,
                 "--app.db.keep-existing=true",
                 "--app.seed.enabled=true",
                 "--app.seed.dir=" + seedDir.toAbsolutePath(),
@@ -127,6 +164,7 @@ class SchemaKeepExistingTest {
         return new SpringApplicationBuilder(FruitShopApplication.class).run(
                 "--server.port=0",
                 "--spring.datasource.url=" + url,
+                H2_DRIVER, H2_USER, H2_PASSWORD, H2_SCHEMA,
                 "--app.db.keep-existing=" + keepExisting,
                 "--app.seed.enabled=false",
                 "--app.scan.enabled=false",

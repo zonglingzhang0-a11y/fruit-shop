@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 街边水果店临期果品动态定价与到店客流适配推送系统 —— MySQL 8 建表脚本（答辩/部署口径）
--- 与 db/schema-h2.sql 字段、索引、语义完全一致；差异仅在 BOOLEAN -> TINYINT(1)。
+-- 与 db/schema-h2.sql 字段、索引、语义完全一致；差异仅在 BOOLEAN -> TINYINT(1)、TIMESTAMP -> DATETIME（原因见下）。
 --
 -- v2 变更（对照参考架构《水果店临期定价系统设计》，差异分析见 docs/07）：
 --   A. fruit_batch 临期判定指标：freshness / estimated_sellable_days / planned_sale_qty
@@ -10,17 +10,22 @@
 --   C. 推送拆分：push_task（计划）+ push_log（发送与效果归因）
 --   D. 新增 shop_traffic_profile（星期 × 小时客流规律）
 --
--- 执行：mysql -uroot -p < schema-mysql.sql
+-- 执行方式：
+--   1. 随应用自动执行（推荐）：--spring.profiles.active=mysql，库由连接串决定（见 application-mysql.yml）；
+--   2. 手工执行：先建库再导入，例如
+--        mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS fruit_shop DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+--        mysql -uroot -p fruit_shop < schema-mysql.sql
+--   脚本里不写 CREATE DATABASE / USE：随应用执行时它会把连接池里的连接切到别的库，表建错地方。
+--   时间列一律用 DATETIME 而不是 TIMESTAMP：MySQL 的 TIMESTAMP 只到 2038-01-19（2038 年问题），
+--   而且会按会话时区换算；DATETIME 到 9999 年、按原样存取，与 Java 的 LocalDateTime 语义一致。
 -- =============================================================================
-CREATE DATABASE IF NOT EXISTS fruit_shop DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-USE fruit_shop;
 
 DROP TABLE IF EXISTS health_check;
 CREATE TABLE health_check (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   check_name  VARCHAR(64)  NOT NULL,
   status      VARCHAR(16)  NOT NULL,
-  checked_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  checked_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -36,8 +41,8 @@ CREATE TABLE fruit_item (
   shelf_life_days INT           NOT NULL,
   loss_rate_pct   DECIMAL(5,2)  NOT NULL DEFAULT 0,
   status          VARCHAR(16)   NOT NULL DEFAULT 'ON',
-  created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_fruit_item_code (item_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -59,9 +64,9 @@ CREATE TABLE fruit_batch (
   planned_sale_qty        DECIMAL(10,2) NULL,
   expected_scrap_qty      DECIMAL(10,2) NULL,
   at_risk                 TINYINT(1)    NULL,
-  metrics_updated_at      TIMESTAMP     NULL,
-  created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  metrics_updated_at      DATETIME     NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_batch_no (batch_no),
   KEY idx_batch_item_expire (item_id, expire_date)
@@ -87,7 +92,7 @@ CREATE TABLE pricing_suggestion (
   freshness               DECIMAL(6,4)  NULL,
   estimated_sellable_days DECIMAL(8,3)  NULL,
   expected_scrap_qty      DECIMAL(10,2) NULL,
-  created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_sugg_date_strategy (biz_date, strategy)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -102,7 +107,7 @@ CREATE TABLE pricing_decision (
   operator        VARCHAR(32)   NOT NULL,
   reason          VARCHAR(255)  NULL,
   reject_reason   VARCHAR(64)   NULL,
-  decided_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  decided_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_decision_suggestion (suggestion_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -115,7 +120,7 @@ CREATE TABLE member (
   phone_tail   VARCHAR(8)  NULL,
   joined_date  DATE        NOT NULL,
   push_enabled TINYINT(1)  NOT NULL DEFAULT 1,
-  created_at   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at   DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_member_no (member_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -153,7 +158,7 @@ CREATE TABLE shop_traffic_profile (
   avg_customer_count DECIMAL(10,3) NULL,
   sample_days        INT           NOT NULL,
   is_peak            TINYINT(1)    NOT NULL DEFAULT 0,
-  computed_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  computed_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_profile_weekday_hour (weekday, hour_of_day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -166,15 +171,15 @@ CREATE TABLE push_task (
   related_batch_id      BIGINT        NULL,
   related_suggestion_id BIGINT        NULL,
   channel               VARCHAR(16)   NOT NULL DEFAULT 'IN_APP',
-  plan_time             TIMESTAMP     NOT NULL,
+  plan_time             DATETIME     NOT NULL,
   reason                VARCHAR(128)  NULL,
   audience_rule         VARCHAR(128)  NULL,
   target_count          INT           NOT NULL DEFAULT 0,
   title                 VARCHAR(64)   NOT NULL,
   content               VARCHAR(512)  NOT NULL,
   status                VARCHAR(16)   NOT NULL DEFAULT 'PLANNED',
-  created_at            TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  sent_at               TIMESTAMP     NULL,
+  created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sent_at               DATETIME     NULL,
   discount_rate         DECIMAL(4,2)  NULL COMMENT '预览时店主看到的折扣（无确认价时发送沿用它）',
   PRIMARY KEY (id),
   KEY idx_push_task_date (biz_date)
@@ -185,11 +190,11 @@ CREATE TABLE push_log (
   id                   BIGINT      NOT NULL AUTO_INCREMENT,
   task_id              BIGINT      NOT NULL,
   member_id            BIGINT      NULL,
-  sent_at              TIMESTAMP   NOT NULL,
+  sent_at              DATETIME   NOT NULL,
   opened               TINYINT(1)  NOT NULL DEFAULT 0,
-  opened_at            TIMESTAMP   NULL,
+  opened_at            DATETIME   NULL,
   converted            TINYINT(1)  NOT NULL DEFAULT 0,
-  converted_at         TIMESTAMP   NULL,
+  converted_at         DATETIME   NULL,
   related_sale_id      BIGINT      NULL,
   convert_window_hours INT         NULL,
   skip_reason          VARCHAR(32) NULL,
@@ -202,7 +207,7 @@ DROP TABLE IF EXISTS sales_record;
 CREATE TABLE sales_record (
   id          BIGINT        NOT NULL AUTO_INCREMENT,
   biz_date    DATE          NOT NULL,
-  sale_time   TIMESTAMP     NOT NULL,
+  sale_time   DATETIME     NOT NULL,
   item_id     BIGINT        NOT NULL,
   batch_id    BIGINT        NULL,
   quantity    DECIMAL(10,2) NOT NULL,
@@ -239,7 +244,7 @@ CREATE TABLE seed_load_log (
   id        BIGINT      NOT NULL AUTO_INCREMENT,
   seed_name VARCHAR(64) NOT NULL,
   row_count INT         NOT NULL,
-  loaded_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  loaded_at DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

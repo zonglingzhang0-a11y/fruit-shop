@@ -8,13 +8,17 @@ import com.fruit.shop.item.mapper.FruitItemMapper;
 import com.fruit.shop.member.domain.Member;
 import com.fruit.shop.member.mapper.MemberMapper;
 import com.fruit.shop.member.mapper.MemberPrefMapper;
+import com.fruit.shop.pricing.PricingService;
+import com.fruit.shop.pricing.dto.SuggestionGenerateRequest;
 import com.fruit.shop.push.PushService;
 import com.fruit.shop.push.dto.PushPreviewRequest;
 import com.fruit.shop.push.dto.PushSendRequest;
 import com.fruit.shop.sales.domain.SalesRecord;
+import com.fruit.shop.sales.domain.StrategyDailyStat;
 import com.fruit.shop.sales.dto.SalesFeedbackRequest;
 import com.fruit.shop.sales.dto.SalesFeedbackResponse;
 import com.fruit.shop.sales.mapper.SalesRecordMapper;
+import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import com.fruit.shop.support.ApiResult;
 import com.fruit.shop.support.BusinessException;
 import com.fruit.shop.support.ShopFixtures;
@@ -67,6 +71,12 @@ class SalesIdempotencyTest {
 
     @Autowired
     private PushService pushService;
+
+    @Autowired
+    private PricingService pricingService;
+
+    @Autowired
+    private StrategyDailyStatMapper statMapper;
 
     @Test
     @DisplayName("顺序重复提交：第二次返回 duplicate=true 与首笔流水 id，库存只扣一次、流水只有一条")
@@ -219,6 +229,66 @@ class SalesIdempotencyTest {
     }
 
     @Test
+    @DisplayName("同一流水号的并发请求锁到不同批次（一半指定后到期批次、一半 FIFO 选先到期批次）：撞唯一索引的输家连同库存扣减整体回滚，总共只扣一次")
+    void losingDuplicateRollsBackItsStockDeduction() throws Exception {
+        LocalDate bizDate = LocalDate.of(2033, 7, 12);
+        FruitItem item = ShopFixtures.item(itemMapper, "回滚幂等梨", ShopFixtures.unique("幂等类"), "4.00", "10.00", 8);
+        FruitBatch early = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 8, "20", "4.00");
+        FruitBatch late = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(2), 8, "20", "4.00");
+
+        // 两组请求内容不同（一组指定了批次），锁的是不同的行，可能同时通过锁后查重、一起走到插入：
+        // 输家撞唯一索引 → 整笔回滚（含已做的库存扣减）→ 新事务里查到首笔；内容与首笔不一致的那组得到 409。
+        // 不论每个请求得到"成功 / 重复 / 409"哪种结果，库存都只能扣一次
+        java.util.concurrent.atomic.AtomicInteger seq = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger conflicts = new java.util.concurrent.atomic.AtomicInteger();
+        List<SalesFeedbackResponse> responses = runConcurrently(() -> {
+            boolean explicitLate = seq.getAndIncrement() % 2 == 0;
+            try {
+                return salesService.feedback(explicitLate
+                        ? feedback(bizDate, late.getId(), item.getId(), "2", "8.00", "POS-ROLLBACK-1")
+                        : feedback(bizDate, null, item.getId(), "2", "8.00", "POS-ROLLBACK-1"));
+            } catch (BusinessException e) {
+                assertThat(e.getCode()).isEqualTo(ApiResult.CODE_CONFLICT);
+                conflicts.incrementAndGet();
+                return null;
+            }
+        });
+
+        long recorded = responses.stream().filter(r -> !r.duplicate()).count();
+        BigDecimal remainTotal = batchMapper.selectById(early.getId()).getRemainQty()
+                .add(batchMapper.selectById(late.getId()).getRemainQty());
+        assertThat(recorded).isEqualTo(1);
+        assertThat(responses.size() + conflicts.get()).isEqualTo(THREADS);
+        assertThat(remainTotal).as("两个批次合计只扣了一笔的 2 件").isEqualByComparingTo("38");
+        assertThat(salesMapper.selectCount(Wrappers.<SalesRecord>lambdaQuery()
+                .eq(SalesRecord::getRequestNo, "POS-ROLLBACK-1"))).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("重复提交不写策略日统计：首笔确实累加了统计，顺序 + 并发重复之后仍只算一笔")
+    void duplicatesDoNotTouchStrategyStats() throws Exception {
+        LocalDate bizDate = LocalDate.of(2033, 7, 13);
+        FruitItem item = ShopFixtures.item(itemMapper, "统计幂等梨", ShopFixtures.unique("幂等类"), "4.00", "10.00", 5);
+        // 剩余 2 天进临期清单 → 生成 RULE 建议，回流才能推断出策略、真正写统计
+        FruitBatch batch = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "20", "4.00");
+        SuggestionGenerateRequest generate = new SuggestionGenerateRequest();
+        generate.setBizDate(bizDate);
+        generate.setStrategy("RULE");
+        pricingService.generate(generate);
+
+        SalesFeedbackResponse first = salesService.feedback(feedback(bizDate, batch.getId(), "3", "8.00", "POS-STAT-1"));
+        salesService.feedback(feedback(bizDate, batch.getId(), "3", "8.00", "POS-STAT-1"));
+        runConcurrently(() -> salesService.feedback(feedback(bizDate, batch.getId(), "3", "8.00", "POS-STAT-1")));
+
+        assertThat(first.strategy()).isEqualTo("RULE");
+        assertThat(first.statUpdated()).as("首笔必须真的写了统计，下面的断言才有意义").isTrue();
+        StrategyDailyStat stat = statMapper.selectOne(Wrappers.<StrategyDailyStat>lambdaQuery()
+                .eq(StrategyDailyStat::getBizDate, bizDate).eq(StrategyDailyStat::getStrategy, "RULE"));
+        assertThat(stat.getSoldQty()).isEqualByComparingTo("3");
+        assertThat(stat.getRevenue()).isEqualByComparingTo("24.00");
+    }
+
+    @Test
     @DisplayName("退货也幂等：同一退货流水号重复提交只回补一次")
     void duplicateReturnRestocksOnce() {
         LocalDate bizDate = LocalDate.of(2033, 7, 4);
@@ -291,7 +361,10 @@ class SalesIdempotencyTest {
             start.countDown();
             List<SalesFeedbackResponse> responses = new ArrayList<>();
             for (Future<SalesFeedbackResponse> future : futures) {
-                responses.add(future.get(30, TimeUnit.SECONDS));
+                SalesFeedbackResponse response = future.get(30, TimeUnit.SECONDS);
+                if (response != null) {
+                    responses.add(response);
+                }
             }
             return responses;
         } finally {

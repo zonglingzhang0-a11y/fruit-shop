@@ -185,6 +185,47 @@ class PushPriceTest {
         assertThat(taskMapper.selectById(preview.taskId()).getContent()).contains("11.52");
     }
 
+    @Test
+    @DisplayName("多个批次都有确认价：推最急（最早到期）的那批，与店主先确认哪个无关")
+    void multipleConfirmedBatchesPushTheMostUrgentOne() {
+        LocalDate bizDate = LocalDate.of(2033, 3, 16);
+        FruitItem item = ShopFixtures.item(itemMapper, "多批次柚子", ShopFixtures.unique("推送价类"), "5.00", "12.80", 5);
+        // A：还剩 1 天；B：还剩 2 天（两批都进临期清单、都会生成建议）
+        FruitBatch urgent = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 5, "10", "5.00");
+        FruitBatch later = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "10", "5.00");
+        generate(bizDate);
+        Long urgentDecision = decide(suggestionOf(bizDate, urgent.getId()), "7.68");
+        decide(suggestionOf(bizDate, later.getId()), "8.96");
+
+        PushPreviewResponse preview = preview(item.getId(), bizDate, "0.80");
+
+        assertThat(preview.batchNo()).isEqualTo(urgent.getBatchNo());
+        assertThat(preview.daysLeft()).isEqualTo(1);
+        assertThat(preview.discountPrice()).isEqualByComparingTo("7.68");
+        assertThat(preview.priceDecisionId()).isEqualTo(urgentDecision);
+    }
+
+    @Test
+    @DisplayName("现拼发送（只传 itemId）遇到无在售库存：直接说明原因，不建立计划")
+    void adhocSendWithoutStockCreatesNoTask() {
+        LocalDate bizDate = LocalDate.of(2033, 3, 17);
+        FruitItem item = ShopFixtures.item(itemMapper, "无货柚子", ShopFixtures.unique("推送价类"), "5.00", "12.80", 5);
+        PushSendRequest request = new PushSendRequest();
+        request.setBizDate(bizDate);
+        request.setItemId(item.getId());
+        request.setSendAt(bizDate.atTime(10, 0));
+
+        PushSendResponse first = pushService.send(request);
+        PushSendResponse second = pushService.send(request);
+
+        assertThat(first.sent()).isZero();
+        assertThat(first.taskId()).isNull();
+        assertThat(first.skipped()).anySatisfy(s -> assertThat(s.reason()).contains("没有在售库存"));
+        assertThat(second.taskId()).isNull();
+        assertThat(taskMapper.selectCount(Wrappers.<PushTask>lambdaQuery()
+                .eq(PushTask::getRelatedItemId, item.getId()))).isZero();
+    }
+
     private void generate(LocalDate bizDate) {
         SuggestionGenerateRequest request = new SuggestionGenerateRequest();
         request.setBizDate(bizDate);

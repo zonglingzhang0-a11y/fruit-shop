@@ -410,39 +410,48 @@ public class PushService {
 
             PriceQuote quote = quotePrice(item, adhocDate, request.getDiscountRate());
             FruitBatch batch = quote.batch();
-            PushCopy groupCopy = groupCopy(item, quote, hint);
+            if (batch == null) {
+                // 无在售库存：直接说明原因返回，不建计划（否则每调一次就多一条永远发不出的 PLANNED 计划）
+                tally.skippedOther++;
+                tally.skipped.add(new PushSkipItem(null, "「" + item.getItemName() + "」无在售库存", null,
+                        "「" + item.getItemName() + "」已没有在售库存，不发送、也不建立计划", BUCKET_OTHER, null));
+                notes.add("现拼模式：「" + item.getItemName() + "」无在售库存，未建立计划");
+                log.info("[push] 现拼发送 itemId={} 无在售库存，未建计划", item.getId());
+            } else {
+                PushCopy groupCopy = groupCopy(item, quote, hint);
 
-            PushTask task = new PushTask();
-            task.setBizDate(adhocDate);
-            task.setRelatedItemId(item.getId());
-            task.setRelatedBatchId(batch == null ? null : batch.getId());
-            task.setRelatedSuggestionId(quote.suggestionId());
-            task.setChannel(PushPolicy.CHANNEL_IN_APP);
-            task.setPlanTime(sendAt);
-            task.setAudienceRule(audienceRuleText(item.getCategoryName(), audience.size()));
-            task.setReason(truncate("接口即时建立并发送（未经过 preview）；"
-                    + audienceRuleText(item.getCategoryName(), audience.size()), REASON_MAX));
-            task.setTargetCount(audience.size());
-            task.setTitle(groupCopy.title());
-            task.setContent(groupCopy.content());
-            task.setDiscountRate(quote.planRate());
-            task.setStatus(PushTask.STATUS_PLANNED);
-            taskMapper.insert(task);
+                PushTask task = new PushTask();
+                task.setBizDate(adhocDate);
+                task.setRelatedItemId(item.getId());
+                task.setRelatedBatchId(batch.getId());
+                task.setRelatedSuggestionId(quote.suggestionId());
+                task.setChannel(PushPolicy.CHANNEL_IN_APP);
+                task.setPlanTime(sendAt);
+                task.setAudienceRule(audienceRuleText(item.getCategoryName(), audience.size()));
+                task.setReason(truncate("接口即时建立并发送（未经过 preview）；"
+                        + audienceRuleText(item.getCategoryName(), audience.size()), REASON_MAX));
+                task.setTargetCount(audience.size());
+                task.setTitle(groupCopy.title());
+                task.setContent(groupCopy.content());
+                task.setDiscountRate(quote.planRate());
+                task.setStatus(PushTask.STATUS_PLANNED);
+                taskMapper.insert(task);
 
-            boolean includeGroup = request.getIncludeGroupText() != null
-                    ? Boolean.TRUE.equals(request.getIncludeGroupText()) : autoSelect;
-            Outcome outcome = sendTask(task, item, audience, adhocDate, sendAt, quiet, includeGroup,
-                    request.getDiscountRate());
-            tally.merge(outcome);
-            if (outcome.priceNote != null) {
-                notes.add(outcome.priceNote);
+                boolean includeGroup = request.getIncludeGroupText() != null
+                        ? Boolean.TRUE.equals(request.getIncludeGroupText()) : autoSelect;
+                Outcome outcome = sendTask(task, item, audience, adhocDate, sendAt, quiet, includeGroup,
+                        request.getDiscountRate());
+                tally.merge(outcome);
+                if (outcome.priceNote != null) {
+                    notes.add(outcome.priceNote);
+                }
+                primaryTaskId = task.getId();
+                primaryPlanTime = task.getPlanTime();
+                primaryTaskStatus = task.getStatus();
+                handledTaskIds.add(task.getId());
+                notes.add("现拼模式：即时建立计划 #" + task.getId() + " 并发送，目标 "
+                        + audience.size() + " 位会员（" + (autoSelect ? "按品类偏好自动选人" : "显式指定会员") + "）");
             }
-            primaryTaskId = task.getId();
-            primaryPlanTime = task.getPlanTime();
-            primaryTaskStatus = task.getStatus();
-            handledTaskIds.add(task.getId());
-            notes.add("现拼模式：即时建立计划 #" + task.getId() + " 并发送，目标 "
-                    + audience.size() + " 位会员（" + (autoSelect ? "按品类偏好自动选人" : "显式指定会员") + "）");
         } else {
             throw BusinessException.badRequest(
                     "请传 taskId（由 /api/push/preview 建计划后发送），或传 itemId+memberIds/discountRate 现拼文案发送");
@@ -771,13 +780,25 @@ public class PushService {
             if (!suggestions.isEmpty()) {
                 Map<Long, PricingSuggestion> suggestionById = new HashMap<>();
                 suggestions.forEach(sg -> suggestionById.put(sg.getId(), sg));
-                PricingDecision decision = decisionMapper.selectOne(Wrappers.<PricingDecision>lambdaQuery()
-                        .in(PricingDecision::getSuggestionId, new ArrayList<>(suggestionById.keySet()))
-                        .orderByDesc(PricingDecision::getId)
-                        .last("LIMIT 1"));
-                if (decision != null && decision.getFinalPrice() != null) {
+                // 与 H5 特价页同一口径：每个批次取它自己最新的一条决策（店主最后定的价）
+                Map<Long, PricingDecision> latestByBatch = new HashMap<>();
+                for (PricingDecision d : decisionMapper.selectList(Wrappers.<PricingDecision>lambdaQuery()
+                        .in(PricingDecision::getSuggestionId, new ArrayList<>(suggestionById.keySet())))) {
+                    if (d.getFinalPrice() == null) {
+                        continue;
+                    }
+                    Long batchId = suggestionById.get(d.getSuggestionId()).getBatchId();
+                    PricingDecision current = latestByBatch.get(batchId);
+                    if (current == null || d.getId() > current.getId()) {
+                        latestByBatch.put(batchId, d);
+                    }
+                }
+                // 多个批次都有确认价时推最急的那批（onSale 已按到期日升序），而不是看店主先点了哪个
+                FruitBatch batch = onSale.stream().filter(b -> latestByBatch.containsKey(b.getId()))
+                        .findFirst().orElse(null);
+                PricingDecision decision = batch == null ? null : latestByBatch.get(batch.getId());
+                if (decision != null) {
                     PricingSuggestion suggestion = suggestionById.get(decision.getSuggestionId());
-                    FruitBatch batch = batchById.get(suggestion.getBatchId());
                     BigDecimal price = PricingPolicy.round2(decision.getFinalPrice());
                     BigDecimal rate = PricingPolicy.rateOf(price, basePrice);
                     String note = "价格取店主确认价 ¥" + PricingPolicy.money(price)
