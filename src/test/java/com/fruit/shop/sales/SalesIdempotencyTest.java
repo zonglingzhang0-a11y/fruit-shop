@@ -5,6 +5,12 @@ import com.fruit.shop.batch.domain.FruitBatch;
 import com.fruit.shop.batch.mapper.FruitBatchMapper;
 import com.fruit.shop.item.domain.FruitItem;
 import com.fruit.shop.item.mapper.FruitItemMapper;
+import com.fruit.shop.member.domain.Member;
+import com.fruit.shop.member.mapper.MemberMapper;
+import com.fruit.shop.member.mapper.MemberPrefMapper;
+import com.fruit.shop.push.PushService;
+import com.fruit.shop.push.dto.PushPreviewRequest;
+import com.fruit.shop.push.dto.PushSendRequest;
 import com.fruit.shop.sales.domain.SalesRecord;
 import com.fruit.shop.sales.dto.SalesFeedbackRequest;
 import com.fruit.shop.sales.dto.SalesFeedbackResponse;
@@ -19,6 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -52,6 +59,15 @@ class SalesIdempotencyTest {
     @Autowired
     private SalesRecordMapper salesMapper;
 
+    @Autowired
+    private MemberMapper memberMapper;
+
+    @Autowired
+    private MemberPrefMapper memberPrefMapper;
+
+    @Autowired
+    private PushService pushService;
+
     @Test
     @DisplayName("顺序重复提交：第二次返回 duplicate=true 与首笔流水 id，库存只扣一次、流水只有一条")
     void sequentialDuplicateIsRecordedOnce() {
@@ -84,8 +100,92 @@ class SalesIdempotencyTest {
         assertThat(responses).hasSize(THREADS);
         assertThat(responses.stream().filter(r -> !r.duplicate()).count()).isEqualTo(1);
         assertThat(responses.stream().map(SalesFeedbackResponse::salesRecordId).distinct().count()).isEqualTo(1);
+        // 重复的那几笔返回的是批次当前剩余（18），不是加锁前缓存的旧值（20）
+        assertThat(responses).allSatisfy(r -> assertThat(r.remainQty()).isEqualByComparingTo("18"));
         assertThat(batchMapper.selectById(batch.getId()).getRemainQty()).isEqualByComparingTo("18");
         assertThat(recordsOf(batch.getId())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("三位小数数量（如称重 1.235 斤）原样重试：按两位小数比对，判为重复而不是 409")
+    void retryWithThreeDecimalQuantityIsDuplicateNotConflict() {
+        LocalDate bizDate = LocalDate.of(2033, 7, 8);
+        FruitBatch batch = newBatch(bizDate, "称重幂等梨", "20");
+
+        SalesFeedbackResponse first = salesService.feedback(feedback(bizDate, batch.getId(), "1.235", "8.00", "POS-SCALE-1"));
+        SalesFeedbackResponse again = salesService.feedback(feedback(bizDate, batch.getId(), "1.235", "8.00", "POS-SCALE-1"));
+
+        assertThat(first.soldQty()).isEqualByComparingTo("1.24");
+        assertThat(again.duplicate()).isTrue();
+        assertThat(again.salesRecordId()).isEqualTo(first.salesRecordId());
+        assertThat(batchMapper.selectById(batch.getId()).getRemainQty()).isEqualByComparingTo("18.76");
+    }
+
+    @Test
+    @DisplayName("首笔库存不足被截断：重试原样回放 overSell=true、请求 3 实扣 1，不再扣减")
+    void duplicateReplaysOverSell() {
+        LocalDate bizDate = LocalDate.of(2033, 7, 9);
+        FruitBatch batch = newBatch(bizDate, "截断幂等梨", "1");
+
+        SalesFeedbackResponse first = salesService.feedback(feedback(bizDate, batch.getId(), "3", "8.00", "POS-OVER-1"));
+        SalesFeedbackResponse again = salesService.feedback(feedback(bizDate, batch.getId(), "3", "8.00", "POS-OVER-1"));
+
+        assertThat(first.overSell()).isTrue();
+        assertThat(again.duplicate()).isTrue();
+        assertThat(again.overSell()).isTrue();
+        assertThat(again.requestedQty()).isEqualByComparingTo("3");
+        assertThat(again.soldQty()).isEqualByComparingTo("1");
+        assertThat(again.remainQty()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("同一流水号换了数量（更大）或换了业务日：都拒绝（409），第二笔不会被静默吞掉")
+    void reusedRequestNoWithLargerQuantityOrOtherDateIsRejected() {
+        LocalDate bizDate = LocalDate.of(2033, 7, 10);
+        FruitBatch batch = newBatch(bizDate, "换量幂等梨", "20");
+        salesService.feedback(feedback(bizDate, batch.getId(), "5", "8.00", "POS-REUSE-1"));
+        salesService.feedback(feedback(bizDate, batch.getId(), "-2", "8.00", "POS-REUSE-RET"));
+
+        assertThatThrownBy(() -> salesService.feedback(feedback(bizDate, batch.getId(), "9", "8.00", "POS-REUSE-1")))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(ApiResult.CODE_CONFLICT));
+        assertThatThrownBy(() -> salesService.feedback(feedback(bizDate, batch.getId(), "-4", "8.00", "POS-REUSE-RET")))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> salesService.feedback(feedback(bizDate.plusDays(1), batch.getId(), "5", "8.00", "POS-REUSE-1")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("业务日");
+        assertThat(batchMapper.selectById(batch.getId()).getRemainQty()).isEqualByComparingTo("17");
+    }
+
+    @Test
+    @DisplayName("首笔命中推送归因：重试原样回放 pushLogId 与 convertedByPush=true")
+    void duplicateReplaysPushAttribution() {
+        LocalDate bizDate = LocalDate.of(2033, 7, 11);
+        FruitBatch batch = newBatch(bizDate, "归因幂等梨", "20");
+        FruitItem item = itemMapper.selectById(batch.getItemId());
+        Member member = ShopFixtures.member(memberMapper, "归因幂等会员", true);
+        ShopFixtures.pref(memberPrefMapper, member.getId(), item.getCategoryName(), "9.000", 5);
+        LocalDateTime sendAt = bizDate.atTime(10, 0);
+        PushPreviewRequest preview = new PushPreviewRequest();
+        preview.setItemId(item.getId());
+        preview.setBizDate(bizDate);
+        preview.setSendAt(sendAt);
+        PushSendRequest send = new PushSendRequest();
+        send.setTaskId(pushService.preview(preview).taskId());
+        send.setSendAt(sendAt);
+        send.setIncludeGroupText(false);
+        pushService.send(send);
+
+        SalesFeedbackRequest sale = feedback(bizDate, batch.getId(), "1", "8.00", "POS-ATTR-1");
+        sale.setMemberId(member.getId());
+        sale.setSaleTime(sendAt.plusHours(1));
+        SalesFeedbackResponse first = salesService.feedback(sale);
+        SalesFeedbackResponse again = salesService.feedback(sale);
+
+        assertThat(first.convertedByPush()).isTrue();
+        assertThat(again.duplicate()).isTrue();
+        assertThat(again.convertedByPush()).isTrue();
+        assertThat(again.pushLogId()).isEqualTo(first.pushLogId());
     }
 
     @Test

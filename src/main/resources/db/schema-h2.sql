@@ -174,7 +174,8 @@ CREATE TABLE push_task (
   content               VARCHAR(512) NOT NULL,
   status                VARCHAR(16)  NOT NULL DEFAULT 'PLANNED',  -- PLANNED/SENT/CANCELLED
   created_at            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  sent_at               TIMESTAMP    NULL
+  sent_at               TIMESTAMP    NULL,
+  discount_rate         DECIMAL(4,2) NULL               -- 预览时店主看到的折扣（无确认价时发送沿用它）
 );
 CREATE INDEX idx_push_task_date ON push_task (biz_date);
 
@@ -210,7 +211,8 @@ CREATE TABLE sales_record (
   is_return   BOOLEAN       NOT NULL DEFAULT FALSE,
   member_id   BIGINT        NULL,   -- v2：归因需要（推送转化统计）
   source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
-  request_no  VARCHAR(64)   NULL    -- 业务流水号（幂等键）：同一笔销售重复提交只记一次
+  request_no  VARCHAR(64)   NULL,   -- 业务流水号（幂等键）：同一笔销售重复提交只记一次
+  requested_qty DECIMAL(10,2) NULL  -- 原始请求数量（带符号；库存不足时 quantity 会被截断）
 );
 CREATE INDEX idx_sales_date_item ON sales_record (biz_date, item_id);
 CREATE UNIQUE INDEX uk_sales_request_no ON sales_record (request_no);

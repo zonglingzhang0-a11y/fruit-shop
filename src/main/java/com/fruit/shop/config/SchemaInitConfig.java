@@ -41,8 +41,11 @@ public class SchemaInitConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SchemaInitConfig.class);
 
-    /** 用来判断"库里是否已有业务数据"的标志表。 */
-    static final String MARKER_TABLE = "fruit_item";
+    /**
+     * 用来判断"建表脚本已经完整跑过"的标志表：取 schema-h2.sql 里<b>最后创建</b>的表。
+     * 建表脚本中途被打断时它还不存在，下次启动会重新完整建表，而不是保留半套表结构。
+     */
+    static final String MARKER_TABLE = "seed_load_log";
 
     /** 保留旧库时执行的增量结构脚本。 */
     static final String MIGRATE_SCRIPT = "db/migrate-h2.sql";

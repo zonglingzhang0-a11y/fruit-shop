@@ -175,6 +175,7 @@ CREATE TABLE push_task (
   status                VARCHAR(16)   NOT NULL DEFAULT 'PLANNED',
   created_at            TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   sent_at               TIMESTAMP     NULL,
+  discount_rate         DECIMAL(4,2)  NULL COMMENT '预览时店主看到的折扣（无确认价时发送沿用它）',
   PRIMARY KEY (id),
   KEY idx_push_task_date (biz_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -211,6 +212,7 @@ CREATE TABLE sales_record (
   member_id   BIGINT        NULL,
   source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
   request_no  VARCHAR(64)   NULL COMMENT '业务流水号（幂等键）',
+  requested_qty DECIMAL(10,2) NULL COMMENT '原始请求数量（带符号；库存不足时 quantity 会被截断）',
   PRIMARY KEY (id),
   KEY idx_sales_date_item (biz_date, item_id),
   UNIQUE KEY uk_sales_request_no (request_no)

@@ -110,6 +110,30 @@ class SalesConcurrencyTest {
         assertThat(after.getStatus()).isEqualTo("SOLD_OUT");
     }
 
+    @Test
+    @DisplayName("FIFO 并发跨批次：先到期的批次只剩 1 件，10 笔并发自动选批，卖空后转到下一批，没有一笔丢批次")
+    void concurrentFifoMovesToNextBatchWhenFirstSellsOut() throws Exception {
+        LocalDate bizDate = LocalDate.of(2033, 5, 9);
+        FruitItem item = ShopFixtures.item(itemMapper, "并发跨批次橙", "并发测试类", "5.00", "12.00", 8);
+        // 先到期：B1 只剩 1 件；后到期：B2 有 10 件
+        FruitBatch first = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "1", "5.00");
+        FruitBatch second = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(2), 8, "10", "5.00");
+
+        List<SalesFeedbackResponse> responses = runConcurrently(() -> salesService.feedback(
+                feedback(bizDate, item.getId(), null, "1")));
+
+        assertThat(responses).hasSize(THREADS)
+                .allSatisfy(r -> {
+                    assertThat(r.batchId()).as("每一笔都要落到某个批次上，不能变成'无批次只记流水'").isNotNull();
+                    assertThat(r.batchAutoPicked()).isTrue();
+                    assertThat(r.soldQty()).isEqualByComparingTo("1");
+                });
+        assertThat(batchMapper.selectById(first.getId()).getRemainQty()).isEqualByComparingTo("0");
+        assertThat(batchMapper.selectById(second.getId()).getRemainQty()).isEqualByComparingTo("1");
+        assertThat(salesMapper.selectCount(Wrappers.<SalesRecord>lambdaQuery()
+                .eq(SalesRecord::getItemId, item.getId()).isNull(SalesRecord::getBatchId))).isZero();
+    }
+
     private List<SalesFeedbackResponse> runConcurrently(java.util.concurrent.Callable<SalesFeedbackResponse> task)
             throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);

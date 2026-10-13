@@ -57,7 +57,14 @@ async function doSend() {
       bizDate: preview.value.bizDate || bizDate.value,
       discountRate: discountRate.value
     })
-    ElMessage.success(`已发送 ${res?.sent ?? 0} 条；因频次上限跳过 ${res?.skippedByLimit ?? 0} 条，因静默时段跳过 ${res?.skippedByQuietHours ?? 0} 条`)
+    const summary = `已发送 ${res?.sent ?? 0} 条；因频次上限跳过 ${res?.skippedByLimit ?? 0} 条，因静默时段跳过 ${res?.skippedByQuietHours ?? 0} 条`
+    if ((res?.sent ?? 0) > 0) {
+      ElMessage.success(summary)
+    } else {
+      // 一条都没送达（无在售库存、静默时段、全部限频等）：用警告并把原因说出来，计划保持 PLANNED 可重发
+      const reasons = [...new Set((res?.skipped || []).map((s) => s.reason).filter(Boolean))].join('；')
+      ElMessage.warning({ message: `${summary}${reasons ? '。原因：' + reasons : ''}`, duration: 6000 })
+    }
     history.value.unshift({ bizDate: bizDate.value, ...res, preview: preview.value })
     if (res?.taskStatus === 'SENT') {
       // 计划已发送，再点也只会命中幂等，直接收起预览

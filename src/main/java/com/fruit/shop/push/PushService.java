@@ -190,6 +190,7 @@ public class PushService {
         Integer daysLeft = quote.daysLeft();
         BigDecimal rate = quote.rate();
         BigDecimal price = quote.price();
+        String label = quote.label();
         Long suggestionId = quote.suggestionId() != null
                 ? quote.suggestionId()
                 : idOf(latestSuggestion(bizDate, item.getId()));
@@ -202,7 +203,7 @@ public class PushService {
 
         PushCopy groupCopy = writeCopy(new PushCopyRequest(
                 props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
-                item.getBasePrice(), price, rate, PricingPolicy.discountLabel(rate), daysLeft,
+                item.getBasePrice(), price, rate, label, daysLeft,
                 batch == null ? null : batch.getExpireDate(), batch == null ? null : batch.getRemainQty(),
                 null, timeHint, PushPolicy.CHANNEL_GROUP_TEXT));
 
@@ -248,7 +249,7 @@ public class PushService {
             }
             PushCopy personal = writeCopy(new PushCopyRequest(
                     props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
-                    item.getBasePrice(), price, rate, PricingPolicy.discountLabel(rate), daysLeft,
+                    item.getBasePrice(), price, rate, label, daysLeft,
                     batch == null ? null : batch.getExpireDate(), batch == null ? null : batch.getRemainQty(),
                     member.getNickname(), timeHint, PushPolicy.CHANNEL_IN_APP));
             targets.add(new PushTarget(member.getId(), member.getMemberNo(), member.getNickname(),
@@ -278,6 +279,7 @@ public class PushService {
         task.setTargetCount(targets.size());
         task.setTitle(groupCopy.title());
         task.setContent(groupCopy.content());
+        task.setDiscountRate(quote.planRate());
         task.setStatus(PushTask.STATUS_PLANNED);
         taskMapper.insert(task);
 
@@ -288,7 +290,7 @@ public class PushService {
         return new PushPreviewResponse(
                 groupCopy.title(), groupCopy.content(), targets.size(), targets,
                 item.getId(), item.getItemName(), item.getCategoryName(), item.getUnit(), item.getBasePrice(),
-                rate, price, PricingPolicy.discountLabel(rate), daysLeft,
+                rate, price, label, daysLeft,
                 batch == null ? null : batch.getExpireDate(), batch == null ? null : batch.getBatchNo(),
                 bizDate, props.getPush().getStoreName(), suggestPushHour,
                 plan.time().format(PUSH_TIME_FORMAT), peaks.peakHours(), timeHint,
@@ -423,6 +425,7 @@ public class PushService {
             task.setTargetCount(audience.size());
             task.setTitle(groupCopy.title());
             task.setContent(groupCopy.content());
+            task.setDiscountRate(quote.planRate());
             task.setStatus(PushTask.STATUS_PLANNED);
             taskMapper.insert(task);
 
@@ -471,8 +474,10 @@ public class PushService {
     private Outcome sendTask(PushTask task, FruitItem item, List<Member> audience, LocalDate bizDate,
                              LocalDateTime sendAt, boolean quiet, boolean includeGroupText, BigDecimal requestedRate) {
         Outcome outcome = new Outcome();
-        // 发送前按同一口径重新取价、复核库存：预览之后店主可能改过价，或者批次已经卖空
-        PriceQuote quote = quotePrice(item, bizDate, requestedRate);
+        // 发送前按同一口径重新取价、复核库存：预览之后店主可能改过价，或者批次已经卖空。
+        // 没传折扣就沿用预览时记在计划上的折扣（只在没有确认价时起作用），不退回规则默认档
+        BigDecimal effectiveRate = requestedRate != null ? requestedRate : task.getDiscountRate();
+        PriceQuote quote = quotePrice(item, bizDate, effectiveRate);
         FruitBatch batch = quote.batch();
         if (batch == null) {
             outcome.skippedOther++;
@@ -485,6 +490,7 @@ public class PushService {
         Integer daysLeft = quote.daysLeft();
         BigDecimal rate = quote.rate();
         BigDecimal price = quote.price();
+        String label = quote.label();
         outcome.priceNote = quote.note();
         PeakResponse peaks = trafficService.peaks(bizDate);
         String hint = timeHint(firstPeakHour(peaks), peaks);
@@ -492,6 +498,7 @@ public class PushService {
         task.setTitle(group.title());
         task.setContent(group.content());
         task.setRelatedBatchId(batch.getId());
+        task.setDiscountRate(quote.planRate());
         if (quote.suggestionId() != null) {
             task.setRelatedSuggestionId(quote.suggestionId());
         }
@@ -518,7 +525,7 @@ public class PushService {
             }
             PushCopy copy = writeCopy(new PushCopyRequest(
                     props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
-                    item.getBasePrice(), price, rate, PricingPolicy.discountLabel(rate), daysLeft,
+                    item.getBasePrice(), price, rate, label, daysLeft,
                     batch == null ? null : batch.getExpireDate(), batch == null ? null : batch.getRemainQty(),
                     member.getNickname(), hint, PushPolicy.CHANNEL_IN_APP));
             PushLog row = newLog(task.getId(), member.getId(), sendAt, null);
@@ -776,10 +783,12 @@ public class PushService {
                     String note = "价格取店主确认价 ¥" + PricingPolicy.money(price)
                             + "（定价决策 #" + decision.getId() + "，批次 " + batch.getBatchNo() + "）";
                     if (requestedRate != null && PricingPolicy.toCandidate(requestedRate).compareTo(rate) != 0) {
-                        note += "；请求里的折扣 " + requestedRate.toPlainString() + " 已忽略，推送价格必须与店主确认价一致";
+                        note += "；手填/预览时的折扣 " + requestedRate.toPlainString() + " 已忽略，推送价格必须与店主确认价一致";
                     }
+                    // 确认价不一定落在候选档上（店主可改成任意不低于底线的价），折扣文案按真实价格比写，与 H5 一致
                     return new PriceQuote(batch, BatchService.daysLeft(bizDate, batch.getExpireDate()),
-                            rate, price, PRICE_CONFIRMED, decision.getId(), suggestion.getId(), note);
+                            rate, price, PricingPolicy.priceRatioLabel(rate),
+                            PRICE_CONFIRMED, decision.getId(), suggestion.getId(), note);
                 }
             }
         }
@@ -795,7 +804,7 @@ public class PushService {
             note += "；请求折扣 " + clamp.rawRate().toPlainString() + " 低于最低折扣线，已抬到 " + rate.toPlainString();
         }
         return new PriceQuote(batch, daysLeft, rate, PricingPolicy.priceOf(basePrice, rate),
-                PRICE_UNCONFIRMED, null, null, note);
+                PricingPolicy.discountLabel(rate), PRICE_UNCONFIRMED, null, null, note);
     }
 
     /** 全店群发文案（预览、现拼、发送共用）。 */
@@ -803,7 +812,7 @@ public class PushService {
         FruitBatch batch = quote.batch();
         return writeCopy(new PushCopyRequest(
                 props.getPush().getStoreName(), item.getItemName(), item.getCategoryName(), item.getUnit(),
-                item.getBasePrice(), quote.price(), quote.rate(), PricingPolicy.discountLabel(quote.rate()),
+                item.getBasePrice(), quote.price(), quote.rate(), quote.label(),
                 quote.daysLeft(), batch == null ? null : batch.getExpireDate(),
                 batch == null ? null : batch.getRemainQty(), null, hint, PushPolicy.CHANNEL_GROUP_TEXT));
     }
@@ -887,8 +896,13 @@ public class PushService {
     }
 
     /** 推送价格：用哪个批次、什么价、价格来源（CONFIRMED / UNCONFIRMED）及说明。 */
-    private record PriceQuote(FruitBatch batch, Integer daysLeft, BigDecimal rate, BigDecimal price,
+    private record PriceQuote(FruitBatch batch, Integer daysLeft, BigDecimal rate, BigDecimal price, String label,
                               String source, Long decisionId, Long suggestionId, String note) {
+
+        /** 落到 push_task.discount_rate 的折扣：只记录未确认时的试算折扣（有确认价时以确认价为准，不需要记）。 */
+        BigDecimal planRate() {
+            return PRICE_UNCONFIRMED.equals(source) ? rate : null;
+        }
     }
 
     /** 计划时间 + 依据。 */

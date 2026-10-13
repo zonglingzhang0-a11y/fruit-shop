@@ -8,9 +8,15 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 文件库重启不丢数据（Issue #1 队友指出：demo 用文件库，但每次启动都 DROP/CREATE 重建表）。
@@ -60,6 +66,53 @@ class SchemaKeepExistingTest {
         }
         try (ConfigurableApplicationContext again = start(url, true)) {
             assertThat(columnExists(again, "sales_record", "request_no")).as("增量脚本可重复执行").isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("种子导入中途失败：该文件整体回滚、不留半截数据；修好后重启（保留旧库）能干净重新导入")
+    void interruptedSeedImportLeavesNoPartialRows() throws Exception {
+        String url = "jdbc:h2:file:" + tempDir.resolve("seed").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        Path seedDir = Files.createDirectories(tempDir.resolve("seed-csv"));
+        String header = "item_code,item_name,category_name,unit,cost_price,base_price,shelf_life_days,loss_rate_pct\n";
+        // 第 3 行与第 1 行 item_code 重复 → 撞唯一索引，模拟"导入到一半失败"
+        Files.writeString(seedDir.resolve("shop_item.csv"), header
+                + "S001,种子苹果,仁果类,斤,3.0,6.0,10,4.0\n"
+                + "S002,种子梨,仁果类,斤,3.0,6.0,10,4.0\n"
+                + "S001,重复苹果,仁果类,斤,3.0,6.0,10,4.0\n");
+
+        assertThatThrownBy(() -> startWithSeed(url, seedDir).close()).isNotNull();
+        try (Connection c = DriverManager.getConnection(url, "sa", "")) {
+            assertThat(count(c, "SELECT COUNT(*) FROM fruit_item WHERE item_code LIKE 'S00%'"))
+                    .as("失败的文件整体回滚，前两行也不能留下").isZero();
+            assertThat(count(c, "SELECT COUNT(*) FROM seed_load_log WHERE seed_name = 'shop_item'")).isZero();
+        }
+
+        Files.writeString(seedDir.resolve("shop_item.csv"), header
+                + "S001,种子苹果,仁果类,斤,3.0,6.0,10,4.0\n"
+                + "S002,种子梨,仁果类,斤,3.0,6.0,10,4.0\n");
+        try (ConfigurableApplicationContext fixed = startWithSeed(url, seedDir)) {
+            assertThat(jdbc(fixed).queryForObject(
+                    "SELECT COUNT(*) FROM fruit_item WHERE item_code LIKE 'S00%'", Integer.class)).isEqualTo(2);
+        }
+    }
+
+    private ConfigurableApplicationContext startWithSeed(String url, Path seedDir) {
+        return new SpringApplicationBuilder(FruitShopApplication.class).run(
+                "--server.port=0",
+                "--spring.datasource.url=" + url,
+                "--app.db.keep-existing=true",
+                "--app.seed.enabled=true",
+                "--app.seed.dir=" + seedDir.toAbsolutePath(),
+                "--app.scan.enabled=false",
+                "--spring.h2.console.enabled=false");
+    }
+
+    private static int count(Connection c, String sql) throws Exception {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            rs.next();
+            return rs.getInt(1);
         }
     }
 

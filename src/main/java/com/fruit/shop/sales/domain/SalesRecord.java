@@ -40,4 +40,10 @@ public class SalesRecord {
 
     /** 业务流水号（幂等键，可空；唯一索引 uk_sales_request_no）。 */
     private String requestNo;
+
+    /**
+     * 请求数量（带符号，退货为负；可空，种子数据为空）。库存不足时 quantity 会被截断成实扣量，
+     * 这里保留原始请求量：重复提交据此判断"是不是同一笔"，并如实回放 overSell。
+     */
+    private BigDecimal requestedQty;
 }

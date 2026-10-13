@@ -1,7 +1,9 @@
 package com.fruit.shop.push;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fruit.shop.batch.OnSaleService;
 import com.fruit.shop.batch.domain.FruitBatch;
+import com.fruit.shop.batch.dto.OnSaleRow;
 import com.fruit.shop.batch.mapper.FruitBatchMapper;
 import com.fruit.shop.item.domain.FruitItem;
 import com.fruit.shop.item.mapper.FruitItemMapper;
@@ -65,6 +67,9 @@ class PushPriceTest {
 
     @Autowired
     private PushTaskMapper taskMapper;
+
+    @Autowired
+    private OnSaleService onSaleService;
 
     @Test
     @DisplayName("有店主确认价：预览忽略手填 0.50 折扣，文案价格 = 确认价 11.52（与 H5 一致）")
@@ -141,6 +146,43 @@ class PushPriceTest {
         assertThat(sent.sent()).isZero();
         assertThat(sent.skipped()).anySatisfy(s -> assertThat(s.reason()).contains("没有在售库存"));
         assertThat(taskMapper.selectById(preview.taskId()).getStatus()).isEqualTo(PushTask.STATUS_PLANNED);
+    }
+
+    @Test
+    @DisplayName("确认价不在候选档上（12.80 → 11.00）：折扣文案写真实价格比 8.6折，与 H5 一致，不写成 8折")
+    void confirmedOffStepPriceUsesRealRatioLabel() {
+        LocalDate bizDate = LocalDate.of(2033, 3, 14);
+        FruitItem item = ShopFixtures.item(itemMapper, "非整档柚子", ShopFixtures.unique("推送价类"), "5.00", "12.80", 5);
+        FruitBatch batch = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "20", "5.00");
+        generate(bizDate);
+        decide(suggestionOf(bizDate, batch.getId()), "11.00");
+
+        PushPreviewResponse preview = preview(item.getId(), bizDate, "0.80");
+
+        assertThat(preview.discountPrice()).isEqualByComparingTo("11.00");
+        assertThat(preview.discountLabel()).isEqualTo("8.6折");
+        assertThat(preview.title() + preview.content()).contains("8.6折").doesNotContain("8折清");
+        OnSaleRow h5 = onSaleService.onSale(bizDate).stream()
+                .filter(r -> r.batchId().equals(batch.getId())).findFirst().orElseThrow();
+        assertThat(preview.discountLabel()).isEqualTo(h5.discountLabel());
+    }
+
+    @Test
+    @DisplayName("没有确认价、预览 0.90，发送只传 taskId：沿用预览折扣（11.52），不退回规则默认档")
+    void sendWithOnlyTaskIdKeepsPreviewedDiscount() {
+        LocalDate bizDate = LocalDate.of(2033, 3, 15);
+        FruitItem item = ShopFixtures.item(itemMapper, "只传计划柚子", ShopFixtures.unique("推送价类"), "5.00", "12.80", 5);
+        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "20", "5.00");
+        Member member = ShopFixtures.member(memberMapper, "只传计划会员", true);
+        ShopFixtures.pref(memberPrefMapper, member.getId(), item.getCategoryName(), "9.000", 3);
+
+        PushPreviewResponse preview = preview(item.getId(), bizDate, "0.90");
+        assertThat(preview.discountPrice()).isEqualByComparingTo("11.52");
+        PushSendResponse sent = pushService.send(send(preview.taskId(), bizDate));
+
+        assertThat(sent.sent()).isEqualTo(2);
+        assertThat(sent.sentItems()).allSatisfy(i -> assertThat(i.content()).contains("11.52"));
+        assertThat(taskMapper.selectById(preview.taskId()).getContent()).contains("11.52");
     }
 
     private void generate(LocalDate bizDate) {
