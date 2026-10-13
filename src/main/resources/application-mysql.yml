@@ -1,4 +1,5 @@
-# 部署口径：MySQL 8（InnoDB，utf8mb4）。启动：java -jar fruit-shop.jar --spring.profiles.active=mysql
+# 部署口径：MySQL 8.0.19+（InnoDB，utf8mb4；开了 binlog 时 binlog_format 须为 ROW/MIXED）。
+# 启动：java -jar fruit-shop.jar --spring.profiles.active=mysql；完整步骤见 docs/01-技术方案.md「切换到 MySQL 8」
 #
 # 连接信息用环境变量覆盖（不要把真实密码写进仓库）：
 #   MYSQL_URL       默认 jdbc:mysql://localhost:3306/fruit_shop?...（库不存在时自动创建）

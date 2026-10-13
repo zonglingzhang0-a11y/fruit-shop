@@ -64,9 +64,24 @@ public class SchemaInitConfig {
      */
     static final String MARKER_TABLE = "seed_load_log";
 
-    /** 增量列：表、列、补列语句（标准 SQL，H2 与 MySQL 都能执行）。 */
-    record ColumnMigration(String table, String column, String ddl) {
+    /**
+     * 增量列：表、列、补列语句（标准 SQL，H2 与 MySQL 都能执行）；
+     * {@code mysqlDdl} 不为空时 MySQL/MariaDB 用它（例如需要指定排序规则的列）。
+     */
+    record ColumnMigration(String table, String column, String ddl, String mysqlDdl) {
+
+        ColumnMigration(String table, String column, String ddl) {
+            this(table, column, ddl, null);
+        }
+
+        String ddlFor(boolean mysql) {
+            return mysql && mysqlDdl != null ? mysqlDdl : ddl;
+        }
     }
+
+    /** sales_record.request_no 在 MySQL 上的列定义：幂等键必须区分大小写（见 schema-mysql.sql 的说明）。 */
+    static final String MYSQL_REQUEST_NO_COLUMN =
+            "request_no VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '业务流水号（幂等键）'";
 
     /** 增量索引：表、索引名、建索引语句。 */
     record IndexMigration(String table, String index, String ddl) {
@@ -75,7 +90,8 @@ public class SchemaInitConfig {
     static final List<ColumnMigration> COLUMNS = List.of(
             // #3 销售回流幂等：业务流水号 + 原始请求数量
             new ColumnMigration("sales_record", "request_no",
-                    "ALTER TABLE sales_record ADD COLUMN request_no VARCHAR(64) NULL"),
+                    "ALTER TABLE sales_record ADD COLUMN request_no VARCHAR(64) NULL",
+                    "ALTER TABLE sales_record ADD COLUMN " + MYSQL_REQUEST_NO_COLUMN),
             new ColumnMigration("sales_record", "requested_qty",
                     "ALTER TABLE sales_record ADD COLUMN requested_qty DECIMAL(10,2) NULL"),
             // 推送计划记住预览折扣：无确认价时只传 taskId 发送，沿用店主预览时看到的价格
@@ -134,9 +150,10 @@ public class SchemaInitConfig {
     /** 给保留下来的旧库补上缺的列和索引（已存在的跳过，可重复执行）。 */
     static void migrate(DataSource dataSource) {
         try (Connection connection = dataSource.getConnection(); Statement st = connection.createStatement()) {
+            boolean mysql = isMySql(connection);
             for (ColumnMigration m : COLUMNS) {
                 if (!columnExists(connection, m.table(), m.column())) {
-                    st.execute(m.ddl());
+                    st.execute(m.ddlFor(mysql));
                     log.info("[db] 旧库补列 {}.{}", m.table(), m.column());
                 }
             }
@@ -146,9 +163,31 @@ public class SchemaInitConfig {
                     log.info("[db] 旧库补索引 {}.{}", m.table(), m.index());
                 }
             }
+            if (mysql) {
+                fixMySqlRequestNoCollation(connection, st);
+            }
         } catch (SQLException e) {
             throw new IllegalStateException("给已有数据库补列/补索引失败，请检查表结构，或用 --app.db.keep-existing=false 重建："
                     + e.getMessage(), e);
+        }
+    }
+
+    /** MySQL 与 MariaDB（同一套方言）。 */
+    static boolean isMySql(Connection connection) throws SQLException {
+        String product = connection.getMetaData().getDatabaseProductName();
+        return product != null && (product.toLowerCase(Locale.ROOT).contains("mysql")
+                || product.toLowerCase(Locale.ROOT).contains("mariadb"));
+    }
+
+    /** 已有 MySQL 库里 request_no 若是不区分大小写的排序规则，改成二进制比较（幂等键必须区分大小写）。 */
+    private static void fixMySqlRequestNoCollation(Connection connection, Statement st) throws SQLException {
+        try (var ps = connection.prepareStatement("SELECT COLLATION_NAME FROM information_schema.COLUMNS"
+                + " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sales_record' AND COLUMN_NAME = 'request_no'");
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next() && !"utf8mb4_bin".equalsIgnoreCase(rs.getString(1))) {
+                st.execute("ALTER TABLE sales_record MODIFY " + MYSQL_REQUEST_NO_COLUMN);
+                log.info("[db] sales_record.request_no 排序规则 {} → utf8mb4_bin（幂等键区分大小写）", rs.getString(1));
+            }
         }
     }
 

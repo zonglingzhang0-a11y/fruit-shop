@@ -322,6 +322,21 @@ class SalesIdempotencyTest {
     }
 
     @Test
+    @DisplayName("流水号区分大小写：'POS-Case-a' 与 'pos-case-A' 是两笔不同的销售（MySQL 上靠 utf8mb4_bin 保证）")
+    void requestNoIsCaseSensitive() {
+        LocalDate bizDate = LocalDate.of(2033, 7, 14);
+        FruitBatch batch = newBatch(bizDate, "大小写幂等梨", "20");
+
+        SalesFeedbackResponse first = salesService.feedback(feedback(bizDate, batch.getId(), "1", "8.00", "POS-Case-a"));
+        SalesFeedbackResponse second = salesService.feedback(feedback(bizDate, batch.getId(), "1", "8.00", "pos-case-A"));
+
+        assertThat(first.duplicate()).isFalse();
+        assertThat(second.duplicate()).as("只是大小写不同的流水号不能被当成重复").isFalse();
+        assertThat(second.salesRecordId()).isNotEqualTo(first.salesRecordId());
+        assertThat(batchMapper.selectById(batch.getId()).getRemainQty()).isEqualByComparingTo("18");
+    }
+
+    @Test
     @DisplayName("不传流水号：保持原行为，每次调用都记一笔")
     void withoutRequestNoEveryCallIsRecorded() {
         LocalDate bizDate = LocalDate.of(2033, 7, 6);

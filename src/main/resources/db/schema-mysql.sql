@@ -15,6 +15,8 @@
 --   2. 手工执行：先建库再导入，例如
 --        mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS fruit_shop DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
 --        mysql -uroot -p fruit_shop < schema-mysql.sql
+--      （Windows PowerShell 不支持 < 重定向，用：mysql -uroot -p fruit_shop -e "source src/main/resources/db/schema-mysql.sql"）
+--   需要 MySQL 8.0.19 及以上（8.0.17/8.0.18 把 member 当成保留字）。
 --   脚本里不写 CREATE DATABASE / USE：随应用执行时它会把连接池里的连接切到别的库，表建错地方。
 --   时间列一律用 DATETIME 而不是 TIMESTAMP：MySQL 的 TIMESTAMP 只到 2038-01-19（2038 年问题），
 --   而且会按会话时区换算；DATETIME 到 9999 年、按原样存取，与 Java 的 LocalDateTime 语义一致。
@@ -222,7 +224,9 @@ CREATE TABLE sales_record (
   is_return   TINYINT(1)    NOT NULL DEFAULT 0,
   member_id   BIGINT        NULL,
   source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
-  request_no  VARCHAR(64)   NULL COMMENT '业务流水号（幂等键）',
+  -- 幂等键必须区分大小写：MySQL 默认排序规则（8.0 为 utf8mb4_0900_ai_ci）不区分大小写，
+  -- 'aB3x' 和 'Ab3X' 会被当成同一个流水号，第二笔真实销售会被当成重复吞掉；与 H2 一致改用二进制比较
+  request_no  VARCHAR(64)   CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '业务流水号（幂等键）',
   requested_qty DECIMAL(10,2) NULL COMMENT '原始请求数量（带符号；库存不足时 quantity 会被截断）',
   PRIMARY KEY (id),
   KEY idx_sales_date_item (biz_date, item_id),
