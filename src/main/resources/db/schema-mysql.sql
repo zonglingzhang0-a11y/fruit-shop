@@ -210,8 +210,10 @@ CREATE TABLE sales_record (
   is_return   TINYINT(1)    NOT NULL DEFAULT 0,
   member_id   BIGINT        NULL,
   source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
+  request_no  VARCHAR(64)   NULL COMMENT '业务流水号（幂等键）',
   PRIMARY KEY (id),
-  KEY idx_sales_date_item (biz_date, item_id)
+  KEY idx_sales_date_item (biz_date, item_id),
+  UNIQUE KEY uk_sales_request_no (request_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DROP TABLE IF EXISTS strategy_daily_stat;

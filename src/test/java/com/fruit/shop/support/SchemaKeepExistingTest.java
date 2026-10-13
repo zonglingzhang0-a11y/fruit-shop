@@ -39,6 +39,37 @@ class SchemaKeepExistingTest {
         }
     }
 
+    @Test
+    @DisplayName("保留旧库时执行增量脚本：缺 request_no 列的旧库重启后自动补列和唯一索引，数据不丢")
+    void keptDatabaseIsMigratedInPlace() {
+        String url = "jdbc:h2:file:" + tempDir.resolve("migrate").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+
+        try (ConfigurableApplicationContext old = start(url, true)) {
+            // 模拟 #3 之前建的旧库：没有 request_no 列
+            jdbc(old).execute("DROP INDEX uk_sales_request_no");
+            jdbc(old).execute("ALTER TABLE sales_record DROP COLUMN request_no");
+            jdbc(old).update("INSERT INTO fruit_item (item_code, item_name, category_name, unit, cost_price, base_price, shelf_life_days, loss_rate_pct)"
+                    + " VALUES ('KEEP-2', '迁移保留果', '测试类', '斤', 3.00, 6.00, 5, 5.0)");
+            assertThat(columnExists(old, "sales_record", "request_no")).isFalse();
+        }
+        try (ConfigurableApplicationContext migrated = start(url, true)) {
+            assertThat(columnExists(migrated, "sales_record", "request_no")).as("增量脚本补上了新列").isTrue();
+            assertThat(jdbc(migrated).queryForObject(
+                    "SELECT COUNT(*) FROM fruit_item WHERE item_code = 'KEEP-2'", Integer.class)).isEqualTo(1);
+        }
+        try (ConfigurableApplicationContext again = start(url, true)) {
+            assertThat(columnExists(again, "sales_record", "request_no")).as("增量脚本可重复执行").isTrue();
+        }
+    }
+
+    private static boolean columnExists(ConfigurableApplicationContext context, String table, String column) {
+        Integer count = jdbc(context).queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE LOWER(TABLE_NAME) = ? AND LOWER(COLUMN_NAME) = ?",
+                Integer.class, table, column);
+        return count != null && count > 0;
+    }
+
     private ConfigurableApplicationContext start(String url, boolean keepExisting) {
         return new SpringApplicationBuilder(FruitShopApplication.class).run(
                 "--server.port=0",

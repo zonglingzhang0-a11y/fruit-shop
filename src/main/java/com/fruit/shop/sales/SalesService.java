@@ -24,8 +24,10 @@ import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import com.fruit.shop.support.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -45,6 +47,8 @@ import java.util.Map;
  *   <li>按 batch_id 扣减 {@code fruit_batch.remain_qty}；扣到 0 时状态置 {@code SOLD_OUT}（退货回补后回到 ON_SALE）；</li>
  *   <li>数量超过现存量时按现存量扣减（避免负库存），并在响应里用 {@code overSell=true} 明确告知，不静默改数；</li>
  *   <li>扣减前对批次加行锁（{@code SELECT ... FOR UPDATE}），并发回流排队执行，不会互相覆盖库存；</li>
+ *   <li>可选业务流水号 {@code requestNo} 做幂等：同一流水号只记一次，重复提交直接返回首次那笔（{@code duplicate=true}）；
+ *       并发重复提交由批次行锁排队后再查一次，兜底靠 {@code sales_record.request_no} 唯一索引（撞索引整笔回滚后返回首笔）；</li>
  *   <li>每笔回流都写 {@code sales_record}，并按"该批次最近一条定价建议"的策略累加 {@code strategy_daily_stat}，
  *       让效果看板能直接对比 FIXED/RULE/MODEL。</li>
  * </ul>
@@ -72,6 +76,7 @@ public class SalesService {
     private final StrategyStatService statService;
     private final PricingService pricingService;
     private final PushEffectService pushEffectService;
+    private final TransactionTemplate tx;
 
     public SalesService(SalesRecordMapper salesMapper,
                         StrategyDailyStatMapper statMapper,
@@ -82,7 +87,8 @@ public class SalesService {
                         ItemService itemService,
                         StrategyStatService statService,
                         PricingService pricingService,
-                        PushEffectService pushEffectService) {
+                        PushEffectService pushEffectService,
+                        PlatformTransactionManager transactionManager) {
         this.salesMapper = salesMapper;
         this.statMapper = statMapper;
         this.batchMapper = batchMapper;
@@ -93,12 +99,36 @@ public class SalesService {
         this.statService = statService;
         this.pricingService = pricingService;
         this.pushEffectService = pushEffectService;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     // ------------------------------------------------------------------ 12. 销售回流
 
-    @Transactional
+    /**
+     * 销售回流入口。事务用 {@link TransactionTemplate} 显式包一层（而不是 {@code @Transactional}），
+     * 是为了在"同一流水号并发提交、后到的一笔撞唯一索引"时：先让那笔整体回滚（库存扣减一起撤销），
+     * 再在新事务里查出首笔记录返回——这一步必须在原事务之外做。
+     */
     public SalesFeedbackResponse feedback(SalesFeedbackRequest request) {
+        String requestNo = normalizeRequestNo(request.getRequestNo());
+        try {
+            return tx.execute(status -> doFeedback(request, requestNo));
+        } catch (DuplicateKeyException race) {
+            if (requestNo == null) {
+                throw race;
+            }
+            log.info("[sales] 流水号 {} 并发重复提交，撞唯一索引后已回滚本笔，返回首笔记录", requestNo);
+            return tx.execute(status -> {
+                SalesRecord existing = findByRequestNo(requestNo);
+                if (existing == null) {
+                    throw race;
+                }
+                return duplicateResponse(existing, request, requestNo);
+            });
+        }
+    }
+
+    private SalesFeedbackResponse doFeedback(SalesFeedbackRequest request, String requestNo) {
         LocalDate bizDate = request.getBizDate();
         BigDecimal quantity = request.getQuantity();
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) == 0) {
@@ -139,6 +169,14 @@ public class SalesService {
             autoPicked = batch != null;
         }
         FruitItem item = itemId == null ? null : itemMapper.selectById(itemId);
+
+        // 幂等：放在批次加锁之后查，同一流水号的并发请求会在上面的行锁处排队，后到的这里就能看到首笔
+        if (requestNo != null) {
+            SalesRecord existing = findByRequestNo(requestNo);
+            if (existing != null) {
+                return duplicateResponse(existing, request, requestNo);
+            }
+        }
 
         BigDecimal soldQty = requested;
         BigDecimal remainQty = null;
@@ -190,6 +228,7 @@ public class SalesService {
             record.setMemberId(memberId);
             record.setSource(request.getSource() == null || request.getSource().isBlank()
                     ? "REAL" : request.getSource().trim().toUpperCase());
+            record.setRequestNo(requestNo);
             salesMapper.insert(record);
             salesRecordId = record.getId();
 
@@ -231,7 +270,66 @@ public class SalesService {
                 PushEffectService.CONVERT_WINDOW_HOURS,
                 attribution == null
                         ? (memberId == null ? "本笔没有 memberId，不参与推送转化归因" : "退货不参与推送转化归因")
-                        : attribution.note());
+                        : attribution.note(),
+                requestNo, false);
+    }
+
+    // ------------------------------------------------------------------ 幂等（业务流水号）
+
+    private static String normalizeRequestNo(String requestNo) {
+        if (requestNo == null || requestNo.isBlank()) {
+            return null;
+        }
+        String trimmed = requestNo.trim();
+        if (trimmed.length() > 64) {
+            throw BusinessException.badRequest("requestNo 最长 64 个字符");
+        }
+        return trimmed;
+    }
+
+    private SalesRecord findByRequestNo(String requestNo) {
+        return salesMapper.selectOne(Wrappers.<SalesRecord>lambdaQuery()
+                .eq(SalesRecord::getRequestNo, requestNo)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 重复提交：不扣库存、不写流水、不写统计，返回首笔的记录与批次当前状态。
+     * 同一流水号却换了商品/批次/数量/单价/退货方向，说明调用方把流水号用错了，拒绝（409）而不是悄悄返回旧结果。
+     */
+    private SalesFeedbackResponse duplicateResponse(SalesRecord existing, SalesFeedbackRequest request, String requestNo) {
+        BigDecimal requestedSigned = Boolean.TRUE.equals(request.getIsReturn()) && request.getQuantity().signum() > 0
+                ? request.getQuantity().negate() : request.getQuantity();
+        boolean sameItem = request.getItemId() == null || request.getItemId().equals(existing.getItemId());
+        boolean sameBatch = request.getBatchId() == null || request.getBatchId().equals(existing.getBatchId());
+        boolean sameUnitPrice = PricingPolicy.round2(request.getUnitPrice())
+                .compareTo(PricingPolicy.round2(existing.getUnitPrice())) == 0;
+        // 首笔可能因库存不足被截断（overSell），所以数量只要求方向一致、且请求量不小于实记量
+        boolean sameDirection = requestedSigned.signum() == existing.getQuantity().signum();
+        boolean qtyCovers = requestedSigned.abs().compareTo(existing.getQuantity().abs()) >= 0;
+        if (!(sameItem && sameBatch && sameUnitPrice && sameDirection && qtyCovers)) {
+            throw BusinessException.conflict("业务流水号 " + requestNo + " 已用于另一笔销售（销售流水 #" + existing.getId()
+                    + "：itemId=" + existing.getItemId() + "，batchId=" + existing.getBatchId()
+                    + "，数量 " + PricingPolicy.qty(existing.getQuantity()) + "，单价 " + PricingPolicy.money(existing.getUnitPrice())
+                    + "），请为新的一笔生成新的流水号");
+        }
+        FruitBatch batch = existing.getBatchId() == null ? null : batchMapper.selectById(existing.getBatchId());
+        boolean isReturn = Boolean.TRUE.equals(existing.getIsReturn());
+        String strategy = statService.inferStrategy(existing.getBatchId(), existing.getItemId(), existing.getBizDate());
+        String message = "重复提交：流水号 " + requestNo + " 已在 " + existing.getSaleTime() + " 记为销售流水 #" + existing.getId()
+                + "，本次没有重复扣减库存、没有重复写流水和统计"
+                + (batch == null ? "" : "；批次当前剩余 " + PricingPolicy.qty(batch.getRemainQty()));
+        log.info("[sales] 重复提交 requestNo={} salesRecordId={}，已忽略", requestNo, existing.getId());
+        return new SalesFeedbackResponse(
+                batch == null ? null : batch.getRemainQty(),
+                batch == null ? null : batch.getStatus(),
+                existing.getId(), existing.getBizDate(), existing.getItemId(),
+                existing.getBatchId(), batch == null ? null : batch.getBatchNo(),
+                request.getQuantity().abs(), existing.getQuantity().abs(), false, false, isReturn,
+                strategy, false, message, existing.getMemberId(),
+                null, false, PushEffectService.CONVERT_WINDOW_HOURS,
+                "重复提交不再触发归因（首笔写入时已经匹配过）",
+                requestNo, true);
     }
 
     // ------------------------------------------------------------------ 11. 效果看板

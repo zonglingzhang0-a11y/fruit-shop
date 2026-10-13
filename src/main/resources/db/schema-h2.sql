@@ -209,9 +209,11 @@ CREATE TABLE sales_record (
   is_discount BOOLEAN       NOT NULL DEFAULT FALSE,
   is_return   BOOLEAN       NOT NULL DEFAULT FALSE,
   member_id   BIGINT        NULL,   -- v2：归因需要（推送转化统计）
-  source      VARCHAR(16)   NOT NULL DEFAULT 'REAL'
+  source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
+  request_no  VARCHAR(64)   NULL    -- 业务流水号（幂等键）：同一笔销售重复提交只记一次
 );
 CREATE INDEX idx_sales_date_item ON sales_record (biz_date, item_id);
+CREATE UNIQUE INDEX uk_sales_request_no ON sales_record (request_no);
 
 -- 9. 策略日统计（效果看板数据源）-----------------------------------------------
 DROP TABLE IF EXISTS strategy_daily_stat;

@@ -37,4 +37,7 @@ public class SalesRecord {
     private Long memberId;
 
     private String source;
+
+    /** 业务流水号（幂等键，可空；唯一索引 uk_sales_request_no）。 */
+    private String requestNo;
 }
