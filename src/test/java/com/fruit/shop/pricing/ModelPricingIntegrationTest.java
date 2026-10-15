@@ -5,7 +5,9 @@ import com.fruit.shop.batch.mapper.FruitBatchMapper;
 import com.fruit.shop.config.AppProperties;
 import com.fruit.shop.item.domain.FruitItem;
 import com.fruit.shop.item.mapper.FruitItemMapper;
+import com.fruit.shop.pricing.dto.DecisionRequest;
 import com.fruit.shop.pricing.dto.ModelInputResponse;
+import com.fruit.shop.pricing.dto.SuggestionGenerateResponse;
 import com.fruit.shop.pricing.dto.SuggestionGenerateRequest;
 import com.fruit.shop.pricing.dto.SuggestionView;
 import com.fruit.shop.pricing.strategy.ModelPricingStrategy;
@@ -197,6 +199,140 @@ class ModelPricingIntegrationTest {
         assertThat(snap.sales()).allSatisfy(s -> assertThat(s.bizDate()).isBefore(bizDate));
     }
 
+    @Test
+    @DisplayName("产物按 batchNo 匹配（batchId 对不上）：仍是批次级，用产物的期望销量")
+    void matchesByBatchNo() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 20);
+        FruitBatch batch = nearExpiryBatch(bizDate, "批次号匹配桃");
+        Path artifact = artifactWithRow(bizDate, "ok", """
+                {"batchId": -1, "batchNo": "%s", "discountRate": 0.8, "expectedQty": 3.5, "reason": "批次号匹配"}
+                """.formatted(batch.getBatchNo()));
+
+        SuggestionView view = withModelFile(artifact, () -> generateMine(bizDate, batch));
+
+        assertThat(view.effectiveStrategy()).isEqualTo("MODEL");
+        assertThat(view.discountRate()).isEqualByComparingTo("0.80");
+        assertThat(view.expectedQty()).isEqualByComparingTo("3.5");
+    }
+
+    @Test
+    @DisplayName("产物只按单品匹配上：用单品的货架折扣，期望销量不照搬别的批次的分摊值，按本批次现存估算")
+    void itemLevelMatchEstimatesExpectedQty() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 21);
+        FruitBatch batch = nearExpiryBatch(bizDate, "单品匹配桃");
+        FruitItem item = itemMapper.selectById(batch.getItemId());
+        Path artifact = artifactWithRow(bizDate, "ok", """
+                {"batchId": -1, "itemCode": "%s", "discountRate": 0.8, "expectedQty": 99, "reason": "单品匹配"}
+                """.formatted(item.getItemCode()));
+
+        SuggestionView view = withModelFile(artifact, () -> generateMine(bizDate, batch));
+
+        assertThat(view.effectiveStrategy()).isEqualTo("MODEL");
+        assertThat(view.discountRate()).isEqualByComparingTo("0.80");
+        assertThat(view.expectedQty()).isEqualByComparingTo(
+                PricingPolicy.estimateExpectedQty(batch.getRemainQty(), new BigDecimal("0.80"), view.daysLeft()));
+    }
+
+    @Test
+    @DisplayName("模型在底线以内决策时报告了不受约束的档位：建议记 price_floor_hit 和原始档位")
+    void modelFloorDecisionIsAudited() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 22);
+        FruitBatch batch = nearExpiryBatch(bizDate, "模型底线桃");
+        Path artifact = artifactWithRow(bizDate, "ok", """
+                {"batchId": %d, "discountRate": 0.6, "rawDiscountRate": 0.5, "expectedQty": 3, "reason": "底线内决策"}
+                """.formatted(batch.getId()));
+
+        SuggestionView view = withModelFile(artifact, () -> generateMine(bizDate, batch));
+
+        assertThat(view.discountRate()).isEqualByComparingTo("0.60");
+        assertThat(view.priceFloorHit()).isTrue();
+        assertThat(view.rawDiscountRate()).isEqualByComparingTo("0.50");
+        assertThat(view.reason()).contains("最低折扣线").contains("本可以更低到 5折");
+    }
+
+    @Test
+    @DisplayName("早先回退了规则版、现在产物可用：再次生成用模型重做（计一次调价），列表只显示最新那条")
+    void fallbackIsRegeneratedOnceModelIsUsable() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 23);
+        FruitBatch batch = nearExpiryBatch(bizDate, "回退重做桃");
+        SuggestionView first = withModelFile(artifact(bizDate.minusDays(1), "ok", batch.getId(), "0.8"),
+                () -> generateMine(bizDate, batch));
+        assertThat(first.effectiveStrategy()).isEqualTo("RULE");
+
+        Path usable = artifact(bizDate, "ok", batch.getId(), "0.8");
+        SuggestionGenerateResponse res = withModelFile(usable, () -> pricingService.generate(request(bizDate)));
+        assertThat(res.strategyNote()).contains("重新生成");
+        List<SuggestionView> mine = pricingService.query(bizDate, "MODEL").stream()
+                .filter(v -> batch.getId().equals(v.batchId())).toList();
+        assertThat(mine).singleElement().satisfies(v -> {
+            assertThat(v.effectiveStrategy()).isEqualTo("MODEL");
+            assertThat(v.discountRate()).isEqualByComparingTo("0.80");
+            assertThat(v.adjustSeq()).isEqualTo(2);
+        });
+
+        // 再生成一次：已经是模型给的，幂等跳过
+        SuggestionGenerateResponse again = withModelFile(usable, () -> pricingService.generate(request(bizDate)));
+        assertThat(pricingService.query(bizDate, "MODEL").stream()
+                .filter(v -> batch.getId().equals(v.batchId())).toList()).singleElement()
+                .satisfies(v -> assertThat(v.id()).isEqualTo(mine.get(0).id()));
+        assertThat(again.generated()).isZero();
+        assertThat(again.skippedByAdjustLimit()).as("应按幂等跳过，而不是撞上调价上限才没生成").isZero();
+    }
+
+    @Test
+    @DisplayName("产物可用但仍没覆盖早先回退的批次：不重新生成（不白占调价次数），响应里说明")
+    void uncoveredFallbackIsNotRegenerated() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 26);
+        FruitBatch batch = nearExpiryBatch(bizDate, "仍未覆盖桃");
+        Path usableOther = artifact(bizDate, "ok", -999L, "0.8");
+        SuggestionView first = withModelFile(usableOther, () -> generateMine(bizDate, batch));
+        assertThat(first.effectiveStrategy()).isEqualTo("RULE");
+
+        SuggestionGenerateResponse again = withModelFile(usableOther, () -> pricingService.generate(request(bizDate)));
+
+        assertThat(again.strategyNote()).contains("仍没有该批次");
+        assertThat(pricingService.query(bizDate, "MODEL").stream()
+                .filter(v -> batch.getId().equals(v.batchId())).toList()).singleElement()
+                .satisfies(v -> assertThat(v.id()).isEqualTo(first.id()));
+    }
+
+    @Test
+    @DisplayName("回退的建议店主已经决策过、或产物仍不可用：不重新生成，响应里说明原因")
+    void decidedOrStillUnusableFallbackIsKept() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 24);
+        FruitBatch batch = nearExpiryBatch(bizDate, "回退保留桃");
+        Path stale = artifact(bizDate.minusDays(1), "ok", batch.getId(), "0.8");
+        SuggestionView first = withModelFile(stale, () -> generateMine(bizDate, batch));
+
+        SuggestionGenerateResponse stillStale = withModelFile(stale, () -> pricingService.generate(request(bizDate)));
+        assertThat(stillStale.strategyNote()).contains("本次未重新生成").contains("不一致");
+
+        DecisionRequest decision = new DecisionRequest();
+        decision.setSuggestionId(first.id());
+        decision.setFinalPrice(first.suggestedPrice());
+        decision.setAccepted(true);
+        pricingService.decide(decision);
+        SuggestionGenerateResponse decided = withModelFile(artifact(bizDate, "ok", batch.getId(), "0.8"),
+                () -> pricingService.generate(request(bizDate)));
+        assertThat(decided.strategyNote()).contains("店主已对其做出决策");
+        assertThat(pricingService.query(bizDate, "MODEL").stream()
+                .filter(v -> batch.getId().equals(v.batchId())).toList()).singleElement()
+                .satisfies(v -> assertThat(v.id()).isEqualTo(first.id()));
+    }
+
+    @Test
+    @DisplayName("模型输入快照：没关联批次的散卖记录，batchId 原样为 null（不能读成 0）")
+    void unbatchedSaleHasNullBatchId() {
+        LocalDate bizDate = LocalDate.of(2034, 5, 25);
+        FruitItem item = ShopFixtures.item(itemMapper, "散卖测试梨", ShopFixtures.unique("散卖类"), "4.00", "10.00", 10);
+        record(item, null, bizDate.minusDays(2), "2");
+
+        ModelInputResponse snap = modelInputService.snapshot(bizDate, 7);
+
+        assertThat(snap.sales()).filteredOn(s -> item.getItemCode().equals(s.itemCode()))
+                .singleElement().satisfies(s -> assertThat(s.batchId()).isNull());
+    }
+
     // ------------------------------------------------------------------ 工具
 
     /** 剩余 1 天的临期批次（一定会生成建议）。 */
@@ -206,15 +342,27 @@ class ModelPricingIntegrationTest {
     }
 
     private Path artifact(LocalDate bizDate, String modelStatus, Long batchId, String rate) throws Exception {
-        Path file = tempDir.resolve("model-" + bizDate + "-" + modelStatus + "-" + batchId + ".json");
+        return artifactWithRow(bizDate, modelStatus, """
+                {"batchId": %d, "itemCode": "NOPE", "discountRate": %s, "expectedQty": 3.5, "reason": "测试模型理由"}
+                """.formatted(batchId, rate));
+    }
+
+    private Path artifactWithRow(LocalDate bizDate, String modelStatus, String rowJson) throws Exception {
+        Path file = Files.createTempFile(tempDir, "model-" + bizDate + "-" + modelStatus + "-", ".json");
         Files.writeString(file, """
                 {"schemaVersion": 1, "bizDate": "%s", "generatedAt": "2034-01-01T09:00:00",
                  "modelVersion": "pricing_model.py@test", "modelStatus": "%s", "modelNote": "测试产物",
                  "inputSource": "test",
-                 "suggestions": [{"batchId": %d, "itemCode": "NOPE", "discountRate": %s, "expectedQty": 3.5,
-                                  "reason": "测试模型理由"}]}
-                """.formatted(bizDate, modelStatus, batchId, rate));
+                 "suggestions": [%s]}
+                """.formatted(bizDate, modelStatus, rowJson));
         return file;
+    }
+
+    private static SuggestionGenerateRequest request(LocalDate bizDate) {
+        SuggestionGenerateRequest request = new SuggestionGenerateRequest();
+        request.setBizDate(bizDate);
+        request.setStrategy("MODEL");
+        return request;
     }
 
     private <T> T withModelFile(Path file, Supplier<T> body) {
@@ -228,10 +376,7 @@ class ModelPricingIntegrationTest {
     }
 
     private SuggestionView generateMine(LocalDate bizDate, FruitBatch batch) {
-        SuggestionGenerateRequest request = new SuggestionGenerateRequest();
-        request.setBizDate(bizDate);
-        request.setStrategy("MODEL");
-        pricingService.generate(request);
+        pricingService.generate(request(bizDate));
         return pricingService.query(bizDate, "MODEL").stream()
                 .filter(v -> batch.getId().equals(v.batchId()))
                 .findFirst().orElseThrow();
@@ -251,7 +396,7 @@ class ModelPricingIntegrationTest {
         r.setBizDate(day);
         r.setSaleTime(day.atTime(10, 0));
         r.setItemId(item.getId());
-        r.setBatchId(batch.getId());
+        r.setBatchId(batch == null ? null : batch.getId());
         r.setQuantity(new BigDecimal(qty));
         r.setUnitPrice(new BigDecimal("9.00"));
         r.setIsDiscount(false);

@@ -10,10 +10,17 @@ import java.math.BigDecimal;
  * @param reason       给店主看的人话理由（会写入 pricing_suggestion.reason）
  * @param effectiveStrategy 实际给出这个价格的策略（null = 就是被请求的那个策略）；
  *                          MODEL 回退规则版时填 RULE，写入 pricing_suggestion.effective_strategy
+ * @param rawDiscountRate   策略自己已经按最低折扣线决策过时，"不受底线约束时会选的档位"（可空）；
+ *                          低于底线时 PricingService 据此记 price_floor_hit / raw_discount_rate，留痕不丢
  */
-public record PricingProposal(BigDecimal discountRate, BigDecimal expectedQty, String reason, String effectiveStrategy) {
+public record PricingProposal(BigDecimal discountRate, BigDecimal expectedQty, String reason, String effectiveStrategy,
+                              BigDecimal rawDiscountRate) {
 
     public PricingProposal(BigDecimal discountRate, BigDecimal expectedQty, String reason) {
-        this(discountRate, expectedQty, reason, null);
+        this(discountRate, expectedQty, reason, null, null);
+    }
+
+    public PricingProposal(BigDecimal discountRate, BigDecimal expectedQty, String reason, String effectiveStrategy) {
+        this(discountRate, expectedQty, reason, effectiveStrategy, null);
     }
 }

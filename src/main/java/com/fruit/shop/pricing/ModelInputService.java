@@ -74,12 +74,10 @@ public class ModelInputService {
                         + " WHERE s.biz_date >= ? AND s.biz_date < ?"
                         + " GROUP BY s.biz_date, s.batch_id, i.item_code"
                         + " ORDER BY s.biz_date, i.item_code, s.batch_id",
-                (rs, i) -> {
-                    long batchId = rs.getLong("batch_id");
-                    return new ModelInputResponse.DailySale(rs.getDate("biz_date").toLocalDate(),
-                            rs.wasNull() ? null : batchId, rs.getString("item_code"),
-                            scale2(rs.getBigDecimal("qty")), scale2(rs.getBigDecimal("revenue")));
-                },
+                // 未关联批次的散卖记录 batch_id 是 NULL：要原样给 null，不能读成 0
+                (rs, i) -> new ModelInputResponse.DailySale(rs.getDate("biz_date").toLocalDate(),
+                        rs.getObject("batch_id", Long.class), rs.getString("item_code"),
+                        scale2(rs.getBigDecimal("qty")), scale2(rs.getBigDecimal("revenue"))),
                 Date.valueOf(salesFrom), Date.valueOf(bizDate));
 
         return new ModelInputResponse(bizDate, from, bizDate.minusDays(1), days, salesFrom, items, batches, sales,

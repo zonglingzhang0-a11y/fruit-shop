@@ -64,7 +64,8 @@ async function generate() {
   } else {
     ElMessage.success('建议已生成')
   }
-  await load()
+  // 产物可能在打开页面之后才重新导出：生成完顺手刷新模型状态提示，和刚生成的建议对得上
+  await Promise.all([load(), loadModelStatus()])
 }
 
 function openDecision(row) {

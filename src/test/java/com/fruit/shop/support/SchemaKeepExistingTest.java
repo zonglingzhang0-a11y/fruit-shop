@@ -89,6 +89,32 @@ class SchemaKeepExistingTest {
     }
 
     @Test
+    @DisplayName("保留旧库补 effective_strategy 列时回填旧建议：MODEL 回退过规则版的记为 RULE，其余记为请求策略")
+    void keptDatabaseBackfillsEffectiveStrategy() {
+        String url = "jdbc:h2:file:" + tempDir.resolve("effective").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        try (ConfigurableApplicationContext old = start(url, true)) {
+            // 模拟 #2 之前建的旧库：没有 effective_strategy 列
+            jdbc(old).execute("ALTER TABLE pricing_suggestion DROP COLUMN effective_strategy");
+            insertLegacySuggestion(old, 1, "MODEL", "模型产物缺失（data/seed/pricing_model.json），已回退规则版：剩 1 天");
+            insertLegacySuggestion(old, 2, "MODEL", "模型建议（Python 侧产物 pricing_model.json）：8 折");
+            insertLegacySuggestion(old, 3, "RULE", "剩 1 天，打 7 折");
+        }
+        try (ConfigurableApplicationContext migrated = start(url, true)) {
+            assertThat(jdbc(migrated).queryForList(
+                    "SELECT effective_strategy FROM pricing_suggestion ORDER BY batch_id", String.class))
+                    .containsExactly("RULE", "MODEL", "RULE");
+        }
+    }
+
+    private static void insertLegacySuggestion(ConfigurableApplicationContext context, long batchId, String strategy,
+                                               String reason) {
+        jdbc(context).update("INSERT INTO pricing_suggestion (biz_date, item_id, batch_id, days_left, remain_qty,"
+                + " original_price, suggested_price, discount_rate, strategy, reason)"
+                + " VALUES (DATE '2033-02-01', 1, ?, 1, 5, 10, 8, 0.8, ?, ?)", batchId, strategy, reason);
+    }
+
+    @Test
     @DisplayName("spring.sql.init.mode=never：保留旧库时也不补列、不跑建表脚本，与 Spring Boot 自带开关一致")
     void initModeNeverTouchesNothing() {
         String url = "jdbc:h2:file:" + tempDir.resolve("never").toAbsolutePath()

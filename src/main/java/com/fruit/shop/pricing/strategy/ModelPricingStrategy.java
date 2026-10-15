@@ -43,7 +43,8 @@ import java.util.Map;
  * <p><b>如实回退</b>：产物缺失、读不了、没写业务日、业务日对不上（过期）、模型状态不是 ok、或者产物里没有这个批次，
  * 都回退规则版，并且 ① 在理由里写清是哪一种原因 ② 提案的 {@code effectiveStrategy} 标为 RULE，
  * 由 PricingService 写进 {@code pricing_suggestion.effective_strategy}，效果看板据此把这些建议算到 RULE 名下。
- * 匹配顺序：batchId → itemId → itemCode（同一单品各批次共用一个货架价，模型按单品联合决策）。
+ * 匹配顺序：batchId → batchNo → itemId → itemCode（同一单品各批次共用一个货架价，模型按单品联合决策）。
+ * 只按单品匹配上时，产物里的期望销量是别的批次的分摊值，不用，改按本批次现存估算。
  */
 @Component
 public class ModelPricingStrategy implements PricingStrategy {
@@ -88,7 +89,7 @@ public class ModelPricingStrategy implements PricingStrategy {
 
         BigDecimal rate = PricingPolicy.toCandidate(row.discountRate());
         BigDecimal price = PricingPolicy.priceOf(context.originalPrice(), rate);
-        BigDecimal expectedQty = row.expectedQty() != null
+        BigDecimal expectedQty = row.batchLevel() && row.expectedQty() != null
                 ? row.expectedQty()
                 : PricingPolicy.estimateExpectedQty(context.remainQty(), rate, context.daysLeft());
         StringBuilder reason = new StringBuilder();
@@ -104,7 +105,17 @@ public class ModelPricingStrategy implements PricingStrategy {
         if (price.compareTo(context.costPrice()) < 0) {
             reason.append("；已低于批次成本 ¥").append(PricingPolicy.money(context.costPrice())).append("，属清仓让利");
         }
-        return new PricingProposal(rate, expectedQty, PricingPolicy.reason(reason.toString()), code());
+        return new PricingProposal(rate, expectedQty, PricingPolicy.reason(reason.toString()), code(),
+                row.rawDiscountRate());
+    }
+
+    /**
+     * 这个批次现在能不能真的由模型定价（产物对该业务日可用、且覆盖了该批次/单品）。
+     * PricingService 据此决定"早先回退了规则版的批次"值不值得重新生成，避免每点一次都白占一次调价。
+     */
+    public boolean covers(PricingContext context) {
+        Artifact artifact = load();
+        return unusableReason(artifact, context.bizDate()) == null && lookup(artifact, context) != null;
     }
 
     /**
@@ -177,14 +188,26 @@ public class ModelPricingStrategy implements PricingStrategy {
 
     private ModelRow lookup(Artifact artifact, PricingContext context) {
         Map<String, ModelRow> rows = artifact.rows();
-        ModelRow row = context.batch() == null ? null : rows.get("batch:" + context.batch().getId());
-        if (row == null && context.item() != null) {
-            row = rows.get("item:" + context.item().getId());
+        if (context.batch() != null) {
+            ModelRow row = rows.get("batch:" + context.batch().getId());
+            if (row == null && context.batch().getBatchNo() != null) {
+                row = rows.get("batchNo:" + context.batch().getBatchNo());
+            }
+            if (row != null) {
+                return row;
+            }
+        }
+        if (context.item() != null) {
+            ModelRow row = rows.get("item:" + context.item().getId());
             if (row == null && context.item().getItemCode() != null) {
                 row = rows.get("code:" + context.item().getItemCode());
             }
+            if (row != null) {
+                // 单品级匹配：折扣是该单品的货架价，期望销量却是某个别的批次的分摊值，不能照搬
+                return new ModelRow(row.discountRate(), row.expectedQty(), row.reason(), row.rawDiscountRate(), false);
+            }
         }
-        return row;
+        return null;
     }
 
     /** 按 路径 + mtime 缓存：同一版本的文件只读一次、解析失败也只告警一次（生成一天的建议会对每个批次调用）。 */
@@ -245,12 +268,16 @@ public class ModelPricingStrategy implements PricingStrategy {
                 }
                 count++;
                 ModelRow row = new ModelRow(discount, decimal(node, "expectedQty", "expected_qty"),
-                        text(node, "reason"));
+                        text(node, "reason"), decimal(node, "rawDiscountRate", "raw_discount_rate"), true);
                 Long batchId = longValue(node, "batchId", "batch_id");
+                String batchNo = text(node, "batchNo", "batch_no");
                 Long itemId = longValue(node, "itemId", "item_id");
                 String itemCode = text(node, "itemCode", "item_code");
                 if (batchId != null) {
                     rows.putIfAbsent("batch:" + batchId, row);
+                }
+                if (batchNo != null) {
+                    rows.putIfAbsent("batchNo:" + batchNo, row);
                 }
                 if (itemId != null) {
                     rows.putIfAbsent("item:" + itemId, row);
@@ -326,6 +353,11 @@ public class ModelPricingStrategy implements PricingStrategy {
         }
     }
 
-    private record ModelRow(BigDecimal discountRate, BigDecimal expectedQty, String reason) {
+    /**
+     * @param rawDiscountRate 不受最低折扣线约束时模型会选的档位（触底时才有）
+     * @param batchLevel      是否按批次（id / 批次号）匹配上；单品级匹配时 expectedQty 不适用于本批次
+     */
+    private record ModelRow(BigDecimal discountRate, BigDecimal expectedQty, String reason,
+                            BigDecimal rawDiscountRate, boolean batchLevel) {
     }
 }

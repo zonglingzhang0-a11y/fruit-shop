@@ -166,12 +166,26 @@ public class SchemaInitConfig {
                     log.info("[db] 旧库补索引 {}.{}", m.table(), m.index());
                 }
             }
+            backfillEffectiveStrategy(st);
             if (mysql) {
                 fixMySqlRequestNoCollation(connection, st);
             }
         } catch (SQLException e) {
             throw new IllegalStateException("给已有数据库补列/补索引失败，请检查表结构，或用 --app.db.keep-existing=false 重建："
                     + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 补列之前生成的建议没有 effective_strategy：按理由文字回填（MODEL 回退过规则版的理由里一定写着"已回退规则版"），
+     * 让效果看板和建议列表对新旧数据用同一个口径。只动 NULL 行，可重复执行。
+     */
+    static void backfillEffectiveStrategy(Statement st) throws SQLException {
+        int n = st.executeUpdate("UPDATE pricing_suggestion SET effective_strategy = CASE"
+                + " WHEN strategy = 'MODEL' AND reason LIKE '%已回退规则版%' THEN 'RULE' ELSE strategy END"
+                + " WHERE effective_strategy IS NULL");
+        if (n > 0) {
+            log.info("[db] 旧建议回填实际生效策略 {} 条", n);
         }
     }
 

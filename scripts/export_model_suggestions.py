@@ -18,7 +18,7 @@
 ====
     # 后端在跑（推荐：用系统里的真实数据）
     python scripts/export_model_suggestions.py --biz-date 2026-06-29
-    # 后端没跑：直接读种子 CSV（只覆盖种子里的批次；建议按单品给出，后端按 itemCode 匹配）
+    # 后端没跑：直接读种子 CSV（只覆盖种子里的批次；种子里没有数据库 id，后端按批次号 batchNo 匹配）
     python scripts/export_model_suggestions.py --biz-date 2026-06-29 --seed-dir data/seed
     # 自检（不依赖任何数据文件和后端）
     python scripts/export_model_suggestions.py --selftest
@@ -59,6 +59,13 @@ def load_from_api(api: str, biz_date: _dt.date, history_days: int) -> dict:
     try:
         with urllib.request.urlopen(url, timeout=60) as resp:
             body = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        # 后端回了错误（例如参数不合法 400）：把后端给的原因原样告诉用户，而不是说"连不上"
+        try:
+            message = json.loads(e.read().decode("utf-8")).get("message") or str(e)
+        except (ValueError, AttributeError):
+            message = str(e)
+        raise SystemExit(f"后端拒绝了请求（HTTP {e.code}）：{message}")
     except urllib.error.URLError as e:
         raise SystemExit(f"连不上后端 {url}：{e}。后端没启动时可以加 --seed-dir data/seed 读种子 CSV")
     if body.get("code") != 0:
@@ -69,7 +76,11 @@ def load_from_api(api: str, biz_date: _dt.date, history_days: int) -> dict:
 
 
 def load_from_seed(seed_dir: str, biz_date: _dt.date, history_days: int) -> dict:
-    """从种子 CSV 拼出与接口同形的快照。种子里没有数据库 id：建议只能按 itemCode 给（后端按单品匹配）。"""
+    """从种子 CSV 拼出与接口同形的快照。
+
+    种子里没有数据库 id，建议带 batchNo（后端按批次号匹配，批次号随种子原样导入、唯一）。
+    批次的现存/状态取 CSV 里的值，也就是后端导入种子后数据库里的状态——后端给建议时看的就是它，
+    这样种子模式与接口模式对同一份数据给出同样的决策。"""
     items = pd.read_csv(os.path.join(seed_dir, "shop_item.csv"), dtype={"item_code": str})
     batches = pd.read_csv(os.path.join(seed_dir, "shop_batch.csv"), dtype={"item_code": str, "batch_no": str})
     sales = pd.read_csv(os.path.join(seed_dir, "shop_sales.csv"), dtype={"item_code": str, "batch_no": str})
@@ -86,17 +97,12 @@ def load_from_seed(seed_dir: str, biz_date: _dt.date, history_days: int) -> dict
     daily = (sales.groupby(["biz_date", "batch_no", "item_code"], dropna=False)
              .agg(qty=("quantity", "sum"), revenue=("revenue", "sum")).reset_index())
 
-    # 种子的 remain_qty 是仿真结束时的状态，这里按"业务日开始时"重建：到货量 − 业务日之前卖掉的
-    sold_before = daily.groupby("batch_no")["qty"].sum()
-    snap_batches = []
-    for b in batches.itertuples():
-        remain = max(float(b.init_qty) - float(sold_before.get(b.batch_no, 0.0)), 0.0)
-        snap_batches.append({
-            "batchId": None, "batchNo": b.batch_no, "itemId": None, "itemCode": b.item_code,
-            "arriveDate": b.arrive_date.isoformat(), "expireDate": b.expire_date.isoformat(),
-            "initQty": float(b.init_qty), "remainQty": round(remain, 2), "costPrice": float(b.cost_price),
-            "status": "ON_SALE" if remain > 0 else "SOLD_OUT",
-        })
+    snap_batches = [{
+        "batchId": None, "batchNo": b.batch_no, "itemId": None, "itemCode": b.item_code,
+        "arriveDate": b.arrive_date.isoformat(), "expireDate": b.expire_date.isoformat(),
+        "initQty": float(b.init_qty), "remainQty": float(b.remain_qty), "costPrice": float(b.cost_price),
+        "status": b.status,
+    } for b in batches.itertuples()]
     return {
         "source": "seed",
         "bizDate": biz_date.isoformat(),
@@ -119,7 +125,13 @@ def load_from_seed(seed_dir: str, biz_date: _dt.date, history_days: int) -> dict
 
 
 def _batch_key(row: dict) -> str:
-    return f"id:{row['batchId']}" if row.get("batchId") is not None else f"no:{row.get('batchNo')}"
+    """批次键：有数据库 id 用 id，否则用批次号。必须在原始 dict 上算——一旦进了 DataFrame，
+    "int + None" 的列会被 pandas 变成浮点（5 → 5.0、None → nan），键就对不上了。"""
+    batch_id = row.get("batchId")
+    if batch_id is not None:
+        return f"id:{int(batch_id)}"
+    batch_no = row.get("batchNo")
+    return f"no:{batch_no}" if batch_no else "none"
 
 
 def build_history(snap: dict) -> pd.DataFrame:
@@ -137,11 +149,13 @@ def build_history(snap: dict) -> pd.DataFrame:
     init_qty = np.array([float(b["initQty"]) for b in batches])
     codes = np.array([b["itemCode"] for b in batches])
 
-    sales = pd.DataFrame(snap["sales"])
-    if sales.empty:
-        sales = pd.DataFrame(columns=["bizDate", "batchId", "batchNo", "itemCode", "qty", "revenue"])
-    sales["bizDate"] = pd.to_datetime(sales["bizDate"]).dt.date
-    sales["key"] = [_batch_key(r) for r in sales.to_dict("records")]
+    sales = pd.DataFrame({
+        "bizDate": [_dt.date.fromisoformat(r["bizDate"]) for r in snap["sales"]],
+        "key": [_batch_key(r) for r in snap["sales"]],
+        "itemCode": [r["itemCode"] for r in snap["sales"]],
+        "qty": [float(r["qty"]) for r in snap["sales"]],
+        "revenue": [float(r["revenue"]) for r in snap["sales"]],
+    })
 
     sales_from = _dt.date.fromisoformat(snap.get("salesFrom") or snap["historyFrom"])
     days = [sales_from + _dt.timedelta(days=i) for i in range((hist_to - sales_from).days + 1)]
@@ -235,10 +249,15 @@ def build_artifact(snap: dict, min_discount_rate: float, generated_at: Optional[
     canonical = json.dumps({k: snap[k] for k in ("bizDate", "items", "batches", "sales")},
                            sort_keys=True, ensure_ascii=False, default=str)
 
-    pricer = ModelPricer(min_discount_rate=min_discount_rate)
+    # 只在最低折扣线以内的候选档里决策：这样理由与期望销量描述的就是实际给出的价格。
+    # 另用全档位再算一次"不受底线约束时会选哪档"，触底时把它带给后端，由后端记 price_floor_hit / raw_discount_rate。
+    allowed = tuple(g for g in DISCOUNT_GRID if g >= min_discount_rate - 1e-9)
+    pricer = ModelPricer(grid=allowed)
     pricer.update_base_prices(batches)
     pricer.maybe_refit(0, history if not history.empty else None)
     meta = {k: _jsonable(v) for k, v in (pricer.model.meta.items() if pricer.model else [])}
+    unconstrained = ModelPricer(grid=DISCOUNT_GRID)
+    unconstrained.model = pricer.model
 
     suggestions: List[dict] = []
     if pricer._model_usable():
@@ -247,25 +266,47 @@ def build_artifact(snap: dict, min_discount_rate: float, generated_at: Optional[
         for b in batches:
             by_item.setdefault(b["item_code"], []).append(b)
         dow = _dow(biz)
-        n_items_decided = 0
+        decided, uncovered, floor_hits = [], [], 0
         for code, rows in sorted(by_item.items()):
+            # 模型没有这个单品的参数（窗口内没有可用样本，例如新上架）：不给建议，后端对它回退规则版，
+            # 而不是让 predict 返回 0 需求、每档打平、默认"维持原价"冒充模型决策
+            if code not in pricer.model.alpha or code not in pricer.model.beta:
+                uncovered.append(code)
+                continue
             dec = pricer.decide_item(code, rows, dow)
             if dec is None:
+                uncovered.append(code)
                 continue
-            n_items_decided += 1
-            rate = pricer._apply_floor(snap_to_grid(dec.discount_rate, DISCOUNT_GRID))
+            decided.append(code)
+            rate = float(snap_to_grid(dec.discount_rate, allowed))
+            raw = unconstrained.decide_item(code, rows, dow)
+            raw_rate = float(snap_to_grid(raw.discount_rate, DISCOUNT_GRID)) if raw is not None else rate
+            floor_hit = raw_rate < rate - 1e-9 and raw_rate < min_discount_rate - 1e-9
+            reason = dec.reason
+            if floor_hit:
+                floor_hits += 1
+                reason += (f"；不受最低折扣线约束时模型会选{raw_rate * 10:.0f}折，"
+                           f"已在底线 {min_discount_rate:.2f} 以内的档位里重新决策")
             total = sum(r["remain_qty"] for r in rows) or 1.0
             for r in rows:
-                suggestions.append({
+                row = {
                     "batchId": r["batch_id"], "batchNo": r["batch_no"],
                     "itemId": r["item_id"], "itemCode": code,
-                    "discountRate": round(float(rate), 2),
+                    "discountRate": round(rate, 2),
                     # 模型按单品联合决策给出总期望销量，按批次现存占比分摊
                     "expectedQty": round(float(dec.expected_qty) * r["remain_qty"] / total, 2),
-                    "reason": dec.reason,
-                })
-        note = (f"按单品联合决策 {n_items_decided} 个单品、{len(suggestions)} 个在售批次；"
-                f"训练样本 {meta.get('n_obs_raw')} 行，剔除缺货截断 {meta.get('n_dropped_stockout')} 行")
+                    "reason": reason,
+                }
+                if floor_hit:
+                    row["rawDiscountRate"] = round(raw_rate, 2)
+                suggestions.append(row)
+        note = (f"按单品联合决策 {len(decided)} 个单品、{len(suggestions)} 个在售批次；"
+                f"训练样本 {meta.get('n_obs_raw')} 行，剔除缺货截断 {meta.get('n_dropped_stockout')} 行"
+                f"（期初库存由台账与销量重建，未扣日常损耗，部分断货日可能识别不到）")
+        if floor_hits:
+            note += f"；{floor_hits} 个单品触到最低折扣线"
+        if uncovered:
+            note += f"；{len(uncovered)} 个单品模型没有覆盖、不给建议（后端对其回退规则版）：{', '.join(uncovered)}"
     else:
         status = str(meta.get("status") or "unusable")
         note = (f"需求模型没有拟合出来（status={status}，训练样本 {meta.get('n_obs_raw')} 行），"
@@ -339,40 +380,87 @@ def _synthetic_snapshot(biz: _dt.date, days: int = 40) -> dict:
             "items": items, "batches": batches, "sales": sales}
 
 
+def _hand_snapshot() -> dict:
+    """手算得出期望值的小样本：窗口前到货、两批重叠、一笔没挂批次的销售（见 _selftest 里的期望表）。"""
+    return {
+        "source": "selftest", "bizDate": "2026-06-10", "historyFrom": "2026-06-05", "historyTo": "2026-06-09",
+        "historyDays": 5, "salesFrom": "2026-06-03",
+        "items": [{"itemId": 7, "itemCode": "X", "itemName": "手算果", "basePrice": 10.0, "costPrice": 4.0}],
+        "batches": [
+            {"batchId": 1, "batchNo": "X-1", "itemId": 7, "itemCode": "X", "arriveDate": "2026-06-03",
+             "expireDate": "2026-06-08", "initQty": 20.0, "remainQty": 0.0, "costPrice": 4.0, "status": "SOLD_OUT"},
+            {"batchId": 2, "batchNo": "X-2", "itemId": 7, "itemCode": "X", "arriveDate": "2026-06-07",
+             "expireDate": "2026-06-12", "initQty": 10.0, "remainQty": 7.0, "costPrice": 4.0, "status": "ON_SALE"},
+        ],
+        "sales": [
+            {"bizDate": "2026-06-04", "batchId": 1, "batchNo": "X-1", "itemCode": "X", "qty": 4.0, "revenue": 40.0},
+            {"bizDate": "2026-06-05", "batchId": 1, "batchNo": "X-1", "itemCode": "X", "qty": 3.0, "revenue": 27.0},
+            {"bizDate": "2026-06-07", "batchId": 1, "batchNo": "X-1", "itemCode": "X", "qty": 2.0, "revenue": 16.0},
+            {"bizDate": "2026-06-07", "batchId": 2, "batchNo": "X-2", "itemCode": "X", "qty": 1.0, "revenue": 10.0},
+            {"bizDate": "2026-06-08", "batchId": None, "batchNo": None, "itemCode": "X", "qty": 0.5, "revenue": 5.0},
+            {"bizDate": "2026-06-08", "batchId": 2, "batchNo": "X-2", "itemCode": "X", "qty": 2.0, "revenue": 18.0},
+        ],
+    }
+
+
 def _selftest() -> int:
+    # 1) 库存重建：手算期望。先过一遍 JSON（与接口模式一样），让"int + None"的批次列走真实路径
+    hand = json.loads(json.dumps(_hand_snapshot()))
+    hist = build_history(hand).set_index("biz_date")
+    expect = {  # 日期: (期初库存, 当日到货, 净销量)
+        "2026-06-05": (16.0, 0.0, 3.0),   # X-1 窗口前已卖 4
+        "2026-06-06": (13.0, 0.0, 0.0),   # 当天没卖也是有效样本（有货）
+        "2026-06-07": (13.0, 10.0, 3.0),  # X-2 当天到货：算到货，不算期初
+        "2026-06-08": (20.0, 0.0, 2.5),   # X-1 到期当天仍在售 11 + X-2 剩 9；没挂批次的 0.5 只算销量
+        "2026-06-09": (7.0, 0.0, 0.0),    # X-1 已过期不再计入
+    }
+    for day, (on_hand, arrival, sold) in expect.items():
+        row = hist.loc[_dt.date.fromisoformat(day)]
+        got = (float(row["on_hand_start"]), float(row["arrival_qty"]), float(row["sold_qty"]))
+        assert np.allclose(got, (on_hand, arrival, sold)), f"{day} 期望 {(on_hand, arrival, sold)}，实际 {got}"
+
+    # 2) 不偷看：往快照里塞业务日当天和以后的成交，历史与决策都不能变
     biz = _dt.date(2026, 6, 29)
     snap = _synthetic_snapshot(biz)
-    hist = build_history(snap)
-    assert not hist.empty, "历史为空"
-    assert hist["biz_date"].max() < biz, "历史里出现了业务日当天或以后的数据（偷看）"
+    base_art = build_artifact(snap, min_discount_rate=DEFAULT_MIN_DISCOUNT, generated_at="2026-10-15T00:00:00")
+    leaked = json.loads(json.dumps(snap))
+    for k in range(3):
+        leaked["sales"].append({"bizDate": (biz + _dt.timedelta(days=k)).isoformat(), "batchId": leaked["batches"][-1]["batchId"],
+                                "batchNo": leaked["batches"][-1]["batchNo"], "itemCode": "A", "qty": 500.0, "revenue": 1.0})
+    leaked_art = build_artifact(leaked, min_discount_rate=DEFAULT_MIN_DISCOUNT, generated_at="2026-10-15T00:00:00")
+    assert leaked_art["suggestions"] == base_art["suggestions"] and leaked_art["fit"] == base_art["fit"], "业务日及以后的成交影响了结果（偷看）"
+    assert build_history(leaked).equals(build_history(snap)), "业务日及以后的成交进入了训练历史"
 
-    # 库存重建：手算第一批（A，到货日 d0）在 d0+1 的期初库存 = 到货量 − d0 当天卖出
-    first = snap["batches"][0]
-    d0 = _dt.date.fromisoformat(first["arriveDate"])
-    d1 = d0 + _dt.timedelta(days=1)
-    sold_d0 = sum(s["qty"] for s in snap["sales"] if s["batchId"] == first["batchId"] and s["bizDate"] == d0.isoformat())
-    if d1 >= _dt.date.fromisoformat(snap["historyFrom"]):
-        row = hist[(hist["biz_date"] == d1) & (hist["item_code"] == "A")]
-        others = [b for b in snap["batches"] if b["itemCode"] == "A" and b is not first
-                  and _dt.date.fromisoformat(b["arriveDate"]) < d1 <= _dt.date.fromisoformat(b["expireDate"])]
-        assert not others, "自检样本设计应保证该日只有一个在售批次"
-        assert abs(float(row["on_hand_start"].iloc[0]) - (first["initQty"] - sold_d0)) < 1e-6, "期初库存重建错误"
-
-    art = build_artifact(snap, min_discount_rate=DEFAULT_MIN_DISCOUNT, generated_at="2026-10-15T00:00:00")
-    assert art["bizDate"] == biz.isoformat()
-    assert art["modelStatus"] == "ok", f"模型应可用：{art['modelNote']}"
+    # 3) 产物结构 + 最低折扣线：只在底线以内的档位里决策；触底的行带 rawDiscountRate，理由与期望销量对应实际给出的档位
+    art = base_art
+    assert art["bizDate"] == biz.isoformat() and art["modelStatus"] == "ok", art["modelNote"]
     assert art["suggestions"], "应至少给出一条建议"
     for s in art["suggestions"]:
-        assert s["discountRate"] in DISCOUNT_GRID, s
-        assert s["discountRate"] >= DEFAULT_MIN_DISCOUNT - 1e-9, s
-        assert s["batchId"] is not None and s["itemId"] is not None and s["reason"]
-    json.dumps(art, ensure_ascii=False, default=_jsonable)  # 能序列化
+        assert s["discountRate"] in DISCOUNT_GRID and s["discountRate"] >= DEFAULT_MIN_DISCOUNT - 1e-9, s
+        assert s["batchId"] is not None and s["itemId"] is not None and s["reason"], s
+        if "rawDiscountRate" in s:
+            assert s["rawDiscountRate"] < DEFAULT_MIN_DISCOUNT and "底线" in s["reason"], s
+    strict = build_artifact(snap, min_discount_rate=0.9, generated_at="2026-10-15T00:00:00")
+    assert all(s["discountRate"] >= 0.9 - 1e-9 for s in strict["suggestions"]), "底线 0.9 时出现了更深的折扣"
+    for s in strict["suggestions"]:
+        label = "维持原价" if s["discountRate"] >= 0.999 else f"打{s['discountRate'] * 10:.0f}折"
+        assert label in s["reason"], f"理由描述的档位与实际给出的不一致：{s}"
 
-    # 训练样本不足：模型不可用 → 不给建议、状态如实
-    thin = _synthetic_snapshot(biz, days=3)
-    thin_art = build_artifact(thin, min_discount_rate=DEFAULT_MIN_DISCOUNT)
+    # 4) 模型没覆盖的单品（新上架、没有历史）：不给建议，modelNote 里写明，后端会回退规则版
+    with_new = json.loads(json.dumps(snap))
+    with_new["items"].append({"itemId": 3, "itemCode": "C", "itemName": "新上架", "basePrice": 8.0, "costPrice": 3.0})
+    with_new["batches"].append({"batchId": 999, "batchNo": "C-1", "itemId": 3, "itemCode": "C",
+                                "arriveDate": biz.isoformat(), "expireDate": (biz + _dt.timedelta(days=2)).isoformat(),
+                                "initQty": 50.0, "remainQty": 50.0, "costPrice": 3.0, "status": "ON_SALE"})
+    new_art = build_artifact(with_new, min_discount_rate=DEFAULT_MIN_DISCOUNT)
+    assert all(s["itemCode"] != "C" for s in new_art["suggestions"]) and "C" in new_art["modelNote"], new_art["modelNote"]
+
+    # 5) 训练样本不足：模型不可用 → 不给建议、状态如实
+    thin_art = build_artifact(_synthetic_snapshot(biz, days=3), min_discount_rate=DEFAULT_MIN_DISCOUNT)
     assert thin_art["modelStatus"] != "ok" and not thin_art["suggestions"], thin_art["modelNote"]
-    print(f"[selftest] OK：历史 {len(hist)} 行、建议 {len(art['suggestions'])} 条；样本不足时状态 {thin_art['modelStatus']}")
+    json.dumps(art, ensure_ascii=False, default=_jsonable)  # 能序列化
+    print(f"[selftest] OK：库存重建 {len(expect)} 天与手算一致；不偷看；底线；未覆盖单品回退；"
+          f"建议 {len(art['suggestions'])} 条；样本不足时状态 {thin_art['modelStatus']}")
     return 0
 
 
