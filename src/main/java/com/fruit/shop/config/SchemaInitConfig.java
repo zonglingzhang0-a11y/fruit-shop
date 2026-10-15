@@ -94,6 +94,9 @@ public class SchemaInitConfig {
                     "ALTER TABLE sales_record ADD COLUMN " + MYSQL_REQUEST_NO_COLUMN),
             new ColumnMigration("sales_record", "requested_qty",
                     "ALTER TABLE sales_record ADD COLUMN requested_qty DECIMAL(10,2) NULL"),
+            // #2 定价建议记录实际给出价格的策略（请求 MODEL 但回退规则时为 RULE）
+            new ColumnMigration("pricing_suggestion", "effective_strategy",
+                    "ALTER TABLE pricing_suggestion ADD COLUMN effective_strategy VARCHAR(16) NULL"),
             // 推送计划记住预览折扣：无确认价时只传 taskId 发送，沿用店主预览时看到的价格
             new ColumnMigration("push_task", "discount_rate",
                     "ALTER TABLE push_task ADD COLUMN discount_rate DECIMAL(4,2) NULL"));

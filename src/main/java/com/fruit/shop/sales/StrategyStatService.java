@@ -35,7 +35,10 @@ public class StrategyStatService {
         this.suggestionMapper = suggestionMapper;
     }
 
-    /** 按批次（优先）或商品推断该笔销售归属的策略；推断不出来返回 null。 */
+    /**
+     * 按批次（优先）或商品推断该笔销售归属的策略；推断不出来返回 null。
+     * 归属到<b>实际给出价格的策略</b>（effective_strategy）：请求 MODEL 但回退规则版的建议算 RULE。
+     */
     public String inferStrategy(Long batchId, Long itemId, LocalDate bizDate) {
         LocalDate day = bizDate == null ? LocalDate.now() : bizDate;
         PricingSuggestion suggestion = null;
@@ -55,7 +58,10 @@ public class StrategyStatService {
                     .orderByDesc(PricingSuggestion::getId)
                     .last("LIMIT 1"));
         }
-        return suggestion == null ? null : suggestion.getStrategy();
+        if (suggestion == null) {
+            return null;
+        }
+        return suggestion.getEffectiveStrategy() != null ? suggestion.getEffectiveStrategy() : suggestion.getStrategy();
     }
 
     /**

@@ -132,6 +132,7 @@ public class PricingService {
 
         int generated = 0;
         List<String> limited = new ArrayList<>();
+        Map<String, Integer> effectiveCounts = new LinkedHashMap<>();
         for (FruitBatch batch : batches) {
             // 幂等优先：同一天同一策略同一批次已经生成过 → 跳过，且不占"调价次数"。
             if (existingSuggestion(bizDate, code, batch.getId()) != null) {
@@ -205,6 +206,9 @@ public class PricingService {
             suggestion.setSuggestedPrice(price);
             suggestion.setDiscountRate(rate);
             suggestion.setStrategy(code);
+            String effective = proposal.effectiveStrategy() == null ? code : proposal.effectiveStrategy();
+            suggestion.setEffectiveStrategy(effective);
+            effectiveCounts.merge(effective, 1, Integer::sum);
             suggestion.setExpectedQty(proposal.expectedQty());
             suggestion.setReason(PricingPolicy.reason(fullReason.toString()));
             suggestion.setPriceFloorHit(clamp.floorHit());
@@ -222,8 +226,19 @@ public class PricingService {
         if (note != null) {
             log.info("[pricing] bizDate={} strategy={} 被每日调价上限拒绝 {} 个批次", bizDate, code, limited.size());
         }
-        log.info("[pricing] bizDate={} strategy={} 临期批次 {} 个，新生成建议 {} 条", bizDate, code, batches.size(), generated);
-        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note);
+        log.info("[pricing] bizDate={} strategy={} 临期批次 {} 个，新生成建议 {} 条，实际生效策略 {}",
+                bizDate, code, batches.size(), generated, effectiveCounts);
+        String strategyNote = null;
+        int fallback = generated - effectiveCounts.getOrDefault(code, 0);
+        if (fallback > 0) {
+            String breakdown = effectiveCounts.entrySet().stream()
+                    .map(e -> e.getKey() + " " + e.getValue() + " 条")
+                    .collect(java.util.stream.Collectors.joining("、"));
+            strategyNote = "请求 " + code + "，其中 " + fallback + " 条实际由其它策略给出（" + breakdown
+                    + "）；原因写在每条建议的理由里，效果看板按实际生效策略统计";
+        }
+        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note,
+                effectiveCounts, strategyNote);
     }
 
     /** 5. 查询建议：bizDate 不传时自动取库里最新一天；strategy 不传返回全部策略。 */
@@ -271,7 +286,8 @@ public class PricingService {
                     s.getExpectedQty(), s.getReason(), decision != null,
                     decision == null ? null : decision.getFinalPrice(),
                     s.getPriceFloorHit(), s.getRawDiscountRate(), s.getAdjustSeq(),
-                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty()));
+                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty(),
+                    s.getEffectiveStrategy() == null ? s.getStrategy() : s.getEffectiveStrategy()));
         }
         return views;
     }

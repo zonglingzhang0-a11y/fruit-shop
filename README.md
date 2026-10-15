@@ -111,7 +111,9 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 **需人工补做**（不影响系统运行，详见 `docs/01` §8 与 `docs/04` §11）
 
 - 真实店主/会员访谈：`docs/04` §8 三张空表，需求侧 24 行仍标为 C 类"待访谈验证"。
-- `data/seed/pricing_model.json` 未产出：系统里选 MODEL 策略会**回退 RULE 并在理由里说明**（可选补）。
+- ~~`data/seed/pricing_model.json` 未产出~~：已接通（#2）。仓库自带 2026-06-29 的模型产物；其它业务日先运行
+  `python scripts/export_model_suggestions.py --biz-date <业务日>`，步骤见 `docs/03` §3.8。产物缺失/过期时 MODEL 仍会回退 RULE，
+  但会如实标为 RULE（`effective_strategy`），效果看板不再把规则定价算到模型头上。
 - `docs/05` 附录 A 的 NFR-03 验证记录待填（可引用 `NoAutonomousActionTest` 三条用例作为证据）。
 
 > 口径一致性说明（2026-10-11 已对齐）：主报告、敏感性报告与看板 KPI 现在**都带最低折扣线 0.60**，

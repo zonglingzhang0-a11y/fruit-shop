@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,28 +23,40 @@ import java.util.Map;
 /**
  * MODEL：读取 Python 定价模块产出的模型建议（docs/01 第 1 节：算法在 Python 侧，后端只读结果）。
  *
- * <p>产物位置：{@code app.pricing.model-file}，默认 {@code data/seed/pricing_model.json}。
- * 刻意做成"文件缺失/字段缺失都不报错"：找不到就回退 RULE 并在 reason 里说明，
- * 保证答辩现场算法脚本没跑也能演示整条链路。文件按 mtime 缓存，重新生成后无需重启。
- *
- * <p>兼容的 JSON 形状（三种都认，字段名兼容 snake_case 与 camelCase）：
+ * <p>产物由 {@code scripts/export_model_suggestions.py} 生成，位置 {@code app.pricing.model-file}
+ * （默认 {@code data/seed/pricing_model.json}），按 mtime 缓存，重新导出后无需重启。格式：
  * <pre>
- * 1) { "suggestions": [ { "itemId": 3, "batchId": 12, "discountRate": 0.6, "expectedQty": 14, "reason": "..." } ] }
- * 2) [ { "itemCode": "1029000110...", "discount_rate": 0.7, "expected_qty": 9 } ]
- * 3) { "items": [ ... ] } / { "records": [ ... ] } / { "rows": [ ... ] }
+ * {
+ *   "schemaVersion": 1,
+ *   "bizDate": "2026-06-29",              // 产物对应的业务日：与生成建议的业务日不一致就视为过期
+ *   "generatedAt": "2026-10-15T10:00:00",
+ *   "modelVersion": "pricing_model.py@1a2b3c4d5e6f",
+ *   "modelStatus": "ok",                  // 模型没拟合出来时为其它值，整份产物不用
+ *   "modelNote": "...",
+ *   "inputSource": "api" | "seed",
+ *   "inputHash": "...",
+ *   "suggestions": [ { "batchId": 12, "itemId": 3, "itemCode": "F1001",
+ *                      "discountRate": 0.7, "expectedQty": 14.2, "reason": "..." } ]
+ * }
  * </pre>
- * 匹配顺序：batchId 精确匹配 → itemId → itemCode；同一键重复出现时以先出现的为准。
+ *
+ * <p><b>如实回退</b>：产物缺失、读不了、没写业务日、业务日对不上（过期）、模型状态不是 ok、或者产物里没有这个批次，
+ * 都回退规则版，并且 ① 在理由里写清是哪一种原因 ② 提案的 {@code effectiveStrategy} 标为 RULE，
+ * 由 PricingService 写进 {@code pricing_suggestion.effective_strategy}，效果看板据此把这些建议算到 RULE 名下。
+ * 匹配顺序：batchId → itemId → itemCode（同一单品各批次共用一个货架价，模型按单品联合决策）。
  */
 @Component
 public class ModelPricingStrategy implements PricingStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(ModelPricingStrategy.class);
 
+    public static final String STATUS_OK = "ok";
+
     private final AppProperties props;
     private final RuleBasedPricingStrategy ruleStrategy;
     private final ObjectMapper objectMapper;
 
-    private volatile CachedArtifact cache;
+    private volatile Artifact cache;
 
     public ModelPricingStrategy(AppProperties props, RuleBasedPricingStrategy ruleStrategy, ObjectMapper objectMapper) {
         this.props = props;
@@ -57,19 +71,19 @@ public class ModelPricingStrategy implements PricingStrategy {
 
     @Override
     public PricingProposal propose(PricingContext context) {
-        CachedArtifact artifact = load();
-        ModelRow row = lookup(artifact, context);
-        if (row == null) {
+        Artifact artifact = load();
+        String unusable = unusableReason(artifact, context.bizDate());
+        ModelRow row = unusable == null ? lookup(artifact, context) : null;
+        if (unusable == null && row == null) {
+            unusable = "模型产物（业务日 " + artifact.bizDate() + "）里没有该批次/单品的建议";
+        }
+        if (unusable != null) {
             if (!props.getPricing().isModelFallbackToRule()) {
-                throw new com.fruit.shop.support.BusinessException(
-                        "模型策略不可用：未找到 " + artifact.path() + " 中该批次的建议，且已关闭回退");
+                throw new com.fruit.shop.support.BusinessException("模型策略不可用：" + unusable + "，且已关闭回退规则版");
             }
             PricingProposal fallback = ruleStrategy.propose(context);
-            String why = artifact.available()
-                    ? "模型产物里没有该商品/批次的建议，已回退规则版："
-                    : "模型产物缺失（" + artifact.path() + "），已回退规则版：";
             return new PricingProposal(fallback.discountRate(), fallback.expectedQty(),
-                    PricingPolicy.reason(why + fallback.reason()));
+                    PricingPolicy.reason(unusable + "，已回退规则版：" + fallback.reason()), ruleStrategy.code());
         }
 
         BigDecimal rate = PricingPolicy.toCandidate(row.discountRate());
@@ -78,120 +92,181 @@ public class ModelPricingStrategy implements PricingStrategy {
                 ? row.expectedQty()
                 : PricingPolicy.estimateExpectedQty(context.remainQty(), rate, context.daysLeft());
         StringBuilder reason = new StringBuilder();
-        reason.append("模型建议（Python 侧产物 ").append(artifact.path()).append("）：")
+        reason.append("模型建议（").append(artifact.modelVersion() == null ? "Python 模型" : artifact.modelVersion())
+                .append("，").append(artifact.bizDate()).append(" 产物）：")
                 .append(PricingPolicy.discountLabel(rate))
                 .append("，¥").append(PricingPolicy.money(context.originalPrice()))
                 .append(" → ¥").append(PricingPolicy.money(price))
-                .append("；到期日 ").append(context.batch().getExpireDate())
-                .append("，现存 ").append(PricingPolicy.qty(context.remainQty()))
                 .append("，期望销量 ").append(PricingPolicy.qty(expectedQty));
         if (row.reason() != null && !row.reason().isBlank()) {
-            reason.append("；模型说明：").append(row.reason());
+            reason.append("；").append(row.reason());
         }
         if (price.compareTo(context.costPrice()) < 0) {
             reason.append("；已低于批次成本 ¥").append(PricingPolicy.money(context.costPrice())).append("，属清仓让利");
         }
-        return new PricingProposal(rate, expectedQty, PricingPolicy.reason(reason.toString()));
+        return new PricingProposal(rate, expectedQty, PricingPolicy.reason(reason.toString()), code());
     }
 
-    /** 模型产物是否可用（供 /api/health 或看板展示"当前策略是否真的在用模型"）。 */
-    public boolean artifactAvailable() {
-        return load().available();
+    /**
+     * 模型产物对某个业务日的状态（{@code GET /api/pricing/model-status}、定价页提示用）。
+     *
+     * @param bizDate 要生成建议的业务日；null 时只报告产物本身
+     */
+    public ModelStatus status(LocalDate bizDate) {
+        Artifact artifact = load();
+        String unusable = bizDate == null ? artifactProblem(artifact) : unusableReason(artifact, bizDate);
+        return new ModelStatus(
+                artifact.path(),
+                artifact.present(),
+                unusable == null,
+                bizDate,
+                artifact.bizDate(),
+                artifact.generatedAt(),
+                artifact.modelVersion(),
+                artifact.modelStatus(),
+                artifact.modelNote(),
+                artifact.inputSource(),
+                artifact.rowCount(),
+                unusable == null ? "模型产物可用" : unusable);
     }
 
-    public String artifactPath() {
-        return load().path();
+    /**
+     * 模型产物状态。
+     *
+     * @param usable  对请求的业务日是否可用（不可用时 MODEL 会回退规则版）
+     * @param message 可用/不可用的人话原因
+     */
+    public record ModelStatus(String path, boolean present, boolean usable, LocalDate requestedBizDate,
+                              LocalDate artifactBizDate, String generatedAt, String modelVersion,
+                              String modelStatus, String modelNote, String inputSource, int suggestionCount,
+                              String message) {
     }
 
     // ------------------------------------------------------------------ 内部实现
 
-    private ModelRow lookup(CachedArtifact artifact, PricingContext context) {
+    /** 产物对该业务日不可用的原因；可用返回 null。 */
+    private String unusableReason(Artifact artifact, LocalDate bizDate) {
+        String problem = artifactProblem(artifact);
+        if (problem != null) {
+            return problem;
+        }
+        if (!artifact.bizDate().equals(bizDate)) {
+            return "模型产物是 " + artifact.bizDate() + " 的，与本次业务日 " + bizDate
+                    + " 不一致（已过期，请先运行 scripts/export_model_suggestions.py --biz-date " + bizDate + "）";
+        }
+        return null;
+    }
+
+    /** 与业务日无关的产物问题；没问题返回 null。 */
+    private String artifactProblem(Artifact artifact) {
+        if (!artifact.present()) {
+            return "模型产物缺失（" + artifact.path() + "，请先运行 scripts/export_model_suggestions.py）";
+        }
+        if (artifact.error() != null) {
+            return "模型产物无法读取（" + artifact.error() + "）";
+        }
+        if (artifact.bizDate() == null) {
+            return "模型产物没有写业务日（bizDate），无法确认是否过期";
+        }
+        if (!STATUS_OK.equalsIgnoreCase(artifact.modelStatus())) {
+            return "模型产物标记模型不可用（modelStatus=" + artifact.modelStatus()
+                    + (artifact.modelNote() == null ? "" : "：" + artifact.modelNote()) + "）";
+        }
+        return null;
+    }
+
+    private ModelRow lookup(Artifact artifact, PricingContext context) {
         Map<String, ModelRow> rows = artifact.rows();
-        if (rows.isEmpty()) {
-            return null;
-        }
         ModelRow row = context.batch() == null ? null : rows.get("batch:" + context.batch().getId());
-        if (row != null) {
-            return row;
-        }
-        if (context.item() != null) {
+        if (row == null && context.item() != null) {
             row = rows.get("item:" + context.item().getId());
-            if (row != null) {
-                return row;
-            }
-            if (context.item().getItemCode() != null) {
+            if (row == null && context.item().getItemCode() != null) {
                 row = rows.get("code:" + context.item().getItemCode());
             }
         }
         return row;
     }
 
-    private CachedArtifact load() {
+    /** 按 路径 + mtime 缓存：同一版本的文件只读一次、解析失败也只告警一次（生成一天的建议会对每个批次调用）。 */
+    private Artifact load() {
         Path path = Paths.get(props.getPricing().getModelFile());
         String pathText = path.toString();
+        long modified;
         try {
             if (!Files.isRegularFile(path)) {
-                return new CachedArtifact(pathText, -1L, Map.of(), false);
+                return Artifact.missing(pathText);
             }
-            long modified = Files.getLastModifiedTime(path).toMillis();
-            CachedArtifact cached = cache;
-            if (cached != null && cached.path().equals(pathText) && cached.lastModified() == modified) {
-                return cached;
-            }
+            modified = Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException e) {
+            return Artifact.missing(pathText);
+        }
+        Artifact cached = cache;
+        if (cached != null && cached.path().equals(pathText) && cached.lastModified() == modified) {
+            return cached;
+        }
+        Artifact fresh;
+        try {
             JsonNode root = objectMapper.readTree(Files.readString(path, StandardCharsets.UTF_8));
-            Map<String, ModelRow> rows = parse(root);
-            CachedArtifact fresh = new CachedArtifact(pathText, modified, rows, true);
-            cache = fresh;
-            log.info("[model] 载入定价模型产物 {}，可用建议 {} 条", pathText, rows.size());
-            return fresh;
+            fresh = parse(pathText, modified, root);
+            log.info("[model] 载入定价模型产物 {}：业务日 {}，状态 {}，建议 {} 条，版本 {}",
+                    pathText, fresh.bizDate(), fresh.modelStatus(), fresh.rowCount(), fresh.modelVersion());
         } catch (IOException | RuntimeException e) {
-            log.warn("[model] 读取/解析模型产物失败（{}），本次回退规则版：{}", pathText, e.getMessage());
-            return new CachedArtifact(pathText, -1L, Map.of(), false);
+            log.warn("[model] 读取/解析模型产物失败（{}）：{}", pathText, e.getMessage());
+            fresh = new Artifact(pathText, modified, true, e.getClass().getSimpleName() + ": " + e.getMessage(),
+                    null, null, null, null, null, null, Map.of(), 0);
         }
+        cache = fresh;
+        return fresh;
     }
 
-    private Map<String, ModelRow> parse(JsonNode root) {
+    private Artifact parse(String path, long modified, JsonNode root) {
+        if (root == null || !root.isObject()) {
+            return new Artifact(path, modified, true, "顶层必须是 JSON 对象（含 bizDate、suggestions 等字段）",
+                    null, null, null, null, null, null, Map.of(), 0);
+        }
+        LocalDate bizDate = null;
+        String bizText = text(root, "bizDate", "biz_date");
+        if (bizText != null) {
+            try {
+                bizDate = LocalDate.parse(bizText);
+            } catch (DateTimeParseException e) {
+                return new Artifact(path, modified, true, "bizDate 不是 yyyy-MM-dd：" + bizText,
+                        null, null, null, null, null, null, Map.of(), 0);
+            }
+        }
         Map<String, ModelRow> rows = new LinkedHashMap<>();
-        JsonNode array = root;
-        if (root != null && root.isObject()) {
-            array = firstArray(root, "suggestions", "items", "records", "rows", "data");
-        }
-        if (array == null || !array.isArray()) {
-            return rows;
-        }
-        for (JsonNode node : array) {
-            BigDecimal discount = decimal(node, "discountRate", "discount_rate", "discount");
-            if (discount == null) {
-                continue;
-            }
-            ModelRow row = new ModelRow(
-                    discount,
-                    decimal(node, "expectedQty", "expected_qty", "expectedSales"),
-                    text(node, "reason", "note", "explain"));
-            Long itemId = longValue(node, "itemId", "item_id");
-            String itemCode = text(node, "itemCode", "item_code", "code", "barcode");
-            Long batchId = longValue(node, "batchId", "batch_id");
-            if (batchId != null) {
-                rows.putIfAbsent("batch:" + batchId, row);
-            }
-            if (itemId != null) {
-                rows.putIfAbsent("item:" + itemId, row);
-            }
-            if (itemCode != null && !itemCode.isBlank()) {
-                rows.putIfAbsent("code:" + itemCode.trim(), row);
+        int count = 0;
+        JsonNode array = root.get("suggestions");
+        if (array != null && array.isArray()) {
+            for (JsonNode node : array) {
+                BigDecimal discount = decimal(node, "discountRate", "discount_rate");
+                if (discount == null) {
+                    continue;
+                }
+                count++;
+                ModelRow row = new ModelRow(discount, decimal(node, "expectedQty", "expected_qty"),
+                        text(node, "reason"));
+                Long batchId = longValue(node, "batchId", "batch_id");
+                Long itemId = longValue(node, "itemId", "item_id");
+                String itemCode = text(node, "itemCode", "item_code");
+                if (batchId != null) {
+                    rows.putIfAbsent("batch:" + batchId, row);
+                }
+                if (itemId != null) {
+                    rows.putIfAbsent("item:" + itemId, row);
+                }
+                if (itemCode != null) {
+                    rows.putIfAbsent("code:" + itemCode, row);
+                }
             }
         }
-        return rows;
-    }
-
-    private static JsonNode firstArray(JsonNode root, String... fieldNames) {
-        for (String field : fieldNames) {
-            JsonNode node = root.get(field);
-            if (node != null && node.isArray()) {
-                return node;
-            }
-        }
-        return null;
+        return new Artifact(path, modified, true, null, bizDate,
+                text(root, "generatedAt", "generated_at"),
+                text(root, "modelVersion", "model_version"),
+                text(root, "modelStatus", "model_status"),
+                text(root, "modelNote", "model_note"),
+                text(root, "inputSource", "input_source"),
+                rows, count);
     }
 
     private static BigDecimal decimal(JsonNode node, String... fieldNames) {
@@ -214,7 +289,7 @@ public class ModelPricingStrategy implements PricingStrategy {
     private static Long longValue(JsonNode node, String... fieldNames) {
         for (String field : fieldNames) {
             JsonNode value = node.get(field);
-            if (value != null && value.isNumber()) {
+            if (value != null && value.isIntegralNumber()) {
                 return value.asLong();
             }
             if (value != null && value.isTextual()) {
@@ -238,10 +313,16 @@ public class ModelPricingStrategy implements PricingStrategy {
         return null;
     }
 
-    /** 模型产物的缓存壳：path + mtime + 解析结果。 */
-    private record CachedArtifact(String path, long lastModified, Map<String, ModelRow> rows, boolean available) {
-        private CachedArtifact {
+    /** 模型产物的缓存壳：path + mtime + 元数据 + 解析结果。 */
+    private record Artifact(String path, long lastModified, boolean present, String error, LocalDate bizDate,
+                            String generatedAt, String modelVersion, String modelStatus, String modelNote,
+                            String inputSource, Map<String, ModelRow> rows, int rowCount) {
+        private Artifact {
             rows = new HashMap<>(rows);
+        }
+
+        static Artifact missing(String path) {
+            return new Artifact(path, -1L, false, null, null, null, null, null, null, null, Map.of(), 0);
         }
     }
 

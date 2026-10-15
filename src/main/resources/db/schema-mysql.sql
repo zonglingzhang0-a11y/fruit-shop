@@ -92,6 +92,7 @@ CREATE TABLE pricing_suggestion (
   suggested_price DECIMAL(10,2) NOT NULL,
   discount_rate   DECIMAL(4,2)  NOT NULL,
   strategy        VARCHAR(16)   NOT NULL,
+  effective_strategy VARCHAR(16) NULL COMMENT '实际给出价格的策略（请求 MODEL 但回退规则时为 RULE）',
   expected_qty    DECIMAL(10,2) NULL,
   reason          VARCHAR(255)  NULL,
   price_floor_hit   TINYINT(1)    NOT NULL DEFAULT 0,
