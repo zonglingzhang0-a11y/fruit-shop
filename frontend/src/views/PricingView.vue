@@ -101,7 +101,9 @@ async function submitDecision() {
 function discountText(rate) {
   if (rate === null || rate === undefined) return '-'
   const r = Number(rate)
-  return (r * 10).toFixed(1) + ' 折'
+  // 与后端理由里的写法一致：1.0 显示"原价"（而不是"10.0 折"），0.8 显示"8 折"，0.85 显示"8.5 折"
+  if (r >= 0.995) return '原价'
+  return Number((r * 10).toFixed(1)) + ' 折'
 }
 
 function isFallback(row) {
