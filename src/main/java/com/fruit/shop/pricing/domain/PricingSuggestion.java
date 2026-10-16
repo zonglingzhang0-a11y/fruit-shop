@@ -39,6 +39,12 @@ public class PricingSuggestion {
     /** FIXED / RULE / MODEL */
     private String strategy;
 
+    /**
+     * 实际给出价格的策略：通常等于 {@link #strategy}；请求 MODEL 但模型产物缺失/过期/没覆盖该批次而回退规则时为 RULE。
+     * 效果看板按它归属，避免把规则定价的结果算到模型头上。旧数据为空时按 strategy 理解。
+     */
+    private String effectiveStrategy;
+
     /** 模型给出的期望销量 */
     private BigDecimal expectedQty;
 

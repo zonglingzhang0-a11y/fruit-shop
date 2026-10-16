@@ -22,6 +22,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -44,6 +46,9 @@ import java.util.Map;
  * 设计原则：
  * - 没有数据文件也能正常启动（只打印提示），便于队友并行开发；
  * - 每个文件只导入一次（由 seed_load_log 记录），重启不会重复；
+ * - 每个文件的导入与它的 seed_load_log 记录放在<b>同一个事务</b>里：导入中途被打断（Ctrl-C、IDE 重跑）
+ *   整个文件回滚，下次启动干净重来。demo 文件库开启 app.db.keep-existing 后不再每次重建表，
+ *   不这样做的话，半截导入会被永久保留（销售重复导入、或唯一键冲突导致再也启动不了）；
  * - 只做数据搬运，业务口径统一放在 Service 层，避免导入器里藏业务规则。
  *
  * 列名契约见 docs/02-仿真器假设与数据字典.md（由 scripts/simulator.py 生成）。
@@ -67,6 +72,7 @@ public class SeedDataLoader implements ApplicationRunner {
     private final SalesRecordMapper salesMapper;
     private final StrategyDailyStatMapper statMapper;
     private final SeedLoadLogMapper seedLogMapper;
+    private final TransactionTemplate tx;
 
     public SeedDataLoader(FruitItemMapper itemMapper,
                           FruitBatchMapper batchMapper,
@@ -75,7 +81,8 @@ public class SeedDataLoader implements ApplicationRunner {
                           TrafficHourlyMapper trafficMapper,
                           SalesRecordMapper salesMapper,
                           StrategyDailyStatMapper statMapper,
-                          SeedLoadLogMapper seedLogMapper) {
+                          SeedLoadLogMapper seedLogMapper,
+                          PlatformTransactionManager transactionManager) {
         this.itemMapper = itemMapper;
         this.batchMapper = batchMapper;
         this.memberMapper = memberMapper;
@@ -84,6 +91,7 @@ public class SeedDataLoader implements ApplicationRunner {
         this.salesMapper = salesMapper;
         this.statMapper = statMapper;
         this.seedLogMapper = seedLogMapper;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -99,18 +107,19 @@ public class SeedDataLoader implements ApplicationRunner {
         }
 
         // 单品必须先导入：批次/销售/推送都要靠 item_code -> item_id 的映射
-        Map<String, Long> itemIdByCode = loadItems(dir.resolve("shop_item.csv"));
-        if (itemIdByCode.isEmpty()) {
+        // 每个文件一个事务（导入行 + seed_load_log 一起提交或一起回滚）
+        Map<String, Long> itemIdByCode = tx.execute(s -> loadItems(dir.resolve("shop_item.csv")));
+        if (itemIdByCode == null || itemIdByCode.isEmpty()) {
             log.warn("[seed] shop_item.csv 缺失或为空，依赖单品的种子文件将跳过");
             return;
         }
-        loadBatches(dir.resolve("shop_batch.csv"), itemIdByCode);
-        Map<String, Long> memberIdByNo = loadMembers(dir.resolve("shop_member.csv"));
-        loadMemberPrefs(dir.resolve("shop_member_pref.csv"), memberIdByNo);
-        loadTraffic(dir.resolve("shop_traffic_hourly.csv"));
-        loadSales(dir.resolve("shop_sales.csv"), itemIdByCode);
+        tx.executeWithoutResult(s -> loadBatches(dir.resolve("shop_batch.csv"), itemIdByCode));
+        Map<String, Long> memberIdByNo = tx.execute(s -> loadMembers(dir.resolve("shop_member.csv")));
+        tx.executeWithoutResult(s -> loadMemberPrefs(dir.resolve("shop_member_pref.csv"), memberIdByNo));
+        tx.executeWithoutResult(s -> loadTraffic(dir.resolve("shop_traffic_hourly.csv")));
+        tx.executeWithoutResult(s -> loadSales(dir.resolve("shop_sales.csv"), itemIdByCode));
         // 三策略日度汇总：让效果看板一打开就有对比数据（由 scripts/evaluate_strategies.py 导出）
-        loadStrategyStats(dir.resolve("strategy_daily_stat.csv"));
+        tx.executeWithoutResult(s -> loadStrategyStats(dir.resolve("strategy_daily_stat.csv")));
         // v2 说明：推送已拆成 push_task / push_log，历史推送不再由种子导入——
         // 计划与日志应当由系统运行时的接口产生，这样打开率与转化归因才是真实的。
         // 种子文件 shop_push_message.csv 仍保留（供报告与仿真口径使用），系统不导入。

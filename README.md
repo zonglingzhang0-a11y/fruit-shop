@@ -111,7 +111,9 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 **需人工补做**（不影响系统运行，详见 `docs/01` §8 与 `docs/04` §11）
 
 - 真实店主/会员访谈：`docs/04` §8 三张空表，需求侧 24 行仍标为 C 类"待访谈验证"。
-- `data/seed/pricing_model.json` 未产出：系统里选 MODEL 策略会**回退 RULE 并在理由里说明**（可选补）。
+- ~~`data/seed/pricing_model.json` 未产出~~：已接通（#2）。仓库自带 2026-06-29 的模型产物；其它业务日先运行
+  `python scripts/export_model_suggestions.py --biz-date <业务日>`，步骤见 `docs/03` §3.8。产物缺失/过期时 MODEL 仍会回退 RULE，
+  但会如实标为 RULE（`effective_strategy`），效果看板不再把规则定价算到模型头上。
 - `docs/05` 附录 A 的 NFR-03 验证记录待填（可引用 `NoAutonomousActionTest` 三条用例作为证据）。
 
 > 口径一致性说明（2026-10-11 已对齐）：主报告、敏感性报告与看板 KPI 现在**都带最低折扣线 0.60**，
@@ -130,7 +132,7 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 | 下载 GitHub 文件 | `github.com`/`raw.githubusercontent.com` 不通，**`api.github.com` 通** | `curl -H 'Accept: application/vnd.github.raw' https://api.github.com/repos/{owner}/{repo}/contents/{urlencoded-path}` |
 | 前端构建 | Vite 6.4.4 + Rollup 4.64.3 下 **动态 `import()` 一个 `.vue` 文件会 build 失败**（静态 import 正常，dev 正常） | 路由/组件一律用静态 import；升级依赖后先跑 `npm run build` 复验 |
 | PowerShell 脚本 | 含中文的 `.ps1` **必须带 UTF-8 BOM**，否则 5.1 按 ANSI 解析报语法错误；含空格的路径传给 `Start-Process -ArgumentList` 要自己加引号 | 参考 `scripts/smoke.ps1` 头部注释 |
-| Docker/MySQL/Redis | 无 | 演示用 H2（MySQL 兼容模式），DDL 同时提供 MySQL 8 版本 |
+| Docker/MySQL/Redis | 无 | 演示用 H2（MySQL 兼容模式）；部署可切 MySQL 8：`--spring.profiles.active=mysql`，步骤见 docs/01-技术方案.md「切换到 MySQL 8」 |
 
 > 中文输出乱码时先执行：`chcp 65001` + `$OutputEncoding=[Text.Encoding]::UTF8`。
 

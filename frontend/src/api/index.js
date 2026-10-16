@@ -90,6 +90,7 @@ export const api = {
   generateSuggestions: (payload) => http.post('/pricing/suggestions/generate', payload),
   suggestions: (params) => http.get('/pricing/suggestions', { params }),
   decide: (payload) => http.post('/pricing/decisions', payload),
+  modelStatus: (params) => http.get('/pricing/model-status', { params }),
 
   // 7~8 客流
   trafficHourly: (params) => http.get('/traffic/hourly', { params }),

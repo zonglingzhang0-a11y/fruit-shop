@@ -22,6 +22,7 @@ import com.fruit.shop.pricing.mapper.PricingSuggestionMapper;
 import com.fruit.shop.pricing.strategy.PricingContext;
 import com.fruit.shop.pricing.strategy.PricingProposal;
 import com.fruit.shop.pricing.strategy.PricingStrategy;
+import com.fruit.shop.pricing.strategy.ModelPricingStrategy;
 import com.fruit.shop.support.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,7 @@ public class PricingService {
     public static final int REJECT_REASON_MAX_LENGTH = 64;
 
     private final Map<String, PricingStrategy> strategies;
+    private final ModelPricingStrategy modelStrategy;
     private final PricingSuggestionMapper suggestionMapper;
     private final PricingDecisionMapper decisionMapper;
     private final FruitItemMapper itemMapper;
@@ -86,6 +88,8 @@ public class PricingService {
             map.put(strategy.code().toUpperCase(), strategy);
         }
         this.strategies = Map.copyOf(map);
+        this.modelStrategy = strategyBeans.stream().filter(ModelPricingStrategy.class::isInstance)
+                .map(ModelPricingStrategy.class::cast).findFirst().orElse(null);
         this.suggestionMapper = suggestionMapper;
         this.decisionMapper = decisionMapper;
         this.itemMapper = itemMapper;
@@ -132,10 +136,31 @@ public class PricingService {
 
         int generated = 0;
         List<String> limited = new ArrayList<>();
+        Map<String, Integer> effectiveCounts = new LinkedHashMap<>();
+        // MODEL 当天早先回退了规则版、现在模型产物可用且覆盖了该批次（例如按提示重新导出了）：允许重新生成，算一次调价
+        ModelPricingStrategy.ModelStatus modelStatus =
+                "MODEL".equals(code) && modelStrategy != null ? modelStrategy.status(bizDate) : null;
+        int replacedFallbacks = 0;
+        Map<String, Integer> keptFallbacks = new LinkedHashMap<>();
         for (FruitBatch batch : batches) {
             // 幂等优先：同一天同一策略同一批次已经生成过 → 跳过，且不占"调价次数"。
-            if (existingSuggestion(bizDate, code, batch.getId()) != null) {
-                continue;
+            PricingSuggestion existing = existingSuggestion(bizDate, code, batch.getId());
+            boolean replacing = false;
+            if (existing != null) {
+                boolean modelFallback = "MODEL".equals(code) && existing.getEffectiveStrategy() != null
+                        && !"MODEL".equals(existing.getEffectiveStrategy());
+                if (!modelFallback) {
+                    continue;
+                }
+                if (modelStatus == null || !modelStatus.usable()) {
+                    keptFallbacks.merge(modelStatus == null ? "模型策略未启用" : modelStatus.message(), 1, Integer::sum);
+                    continue;
+                }
+                if (hasDecision(existing.getId())) {
+                    keptFallbacks.merge("店主已对其做出决策", 1, Integer::sum);
+                    continue;
+                }
+                replacing = true;
             }
             FruitItem item = items.get(batch.getItemId());
             if (item == null) {
@@ -143,6 +168,13 @@ public class PricingService {
             }
             if (item.getBasePrice() == null || item.getBasePrice().compareTo(BigDecimal.ZERO) <= 0) {
                 log.warn("[pricing] 商品 {} 缺少原价，跳过批次 {}", item.getItemName(), batch.getBatchNo());
+                continue;
+            }
+            int daysLeft = BatchService.daysLeft(bizDate, batch.getExpireDate());
+            PricingContext context = new PricingContext(item, batch, bizDate, daysLeft,
+                    batch.getRemainQty(), item.getBasePrice(), batch.getCostPrice(), item.getCategoryName());
+            if (replacing && !modelStrategy.covers(context)) {
+                keptFallbacks.merge("模型产物里仍没有该批次/单品", 1, Integer::sum);
                 continue;
             }
             int adjustCount = adjustGuard.adjustCount(bizDate, batch.getId());
@@ -154,10 +186,7 @@ public class PricingService {
             }
             int adjustSeq = adjustCount + 1;
 
-            int daysLeft = BatchService.daysLeft(bizDate, batch.getExpireDate());
             BatchMetrics metrics = metricsService.compute(bizDate, batch, window, now);
-            PricingContext context = new PricingContext(item, batch, bizDate, daysLeft,
-                    batch.getRemainQty(), item.getBasePrice(), batch.getCostPrice(), item.getCategoryName());
 
             PricingProposal proposal = strategy.propose(context);
             if (proposal == null || proposal.discountRate() == null) {
@@ -170,6 +199,13 @@ public class PricingService {
             // v2 定价约束 1/2：最低折扣线（对所有策略生效，FIXED/RULE/MODEL 一视同仁）
             PricingPolicy.FloorClamp clamp = PricingPolicy.applyFloor(rate, floor);
             rate = clamp.rate();
+            boolean floorHit = clamp.floorHit();
+            BigDecimal rawRate = clamp.rawRate();
+            // 策略自己已经在底线以内决策过（MODEL 导出时就这样做）：用它报告的"不受约束时的档位"留痕
+            if (!floorHit && proposal.rawDiscountRate() != null && proposal.rawDiscountRate().compareTo(floor) < 0) {
+                floorHit = true;
+                rawRate = PricingPolicy.toCandidate(proposal.rawDiscountRate());
+            }
             BigDecimal price = PricingPolicy.priceOf(original, rate);
             if (price.compareTo(original) > 0) {
                 log.warn("[pricing] 策略 {} 给出高于原价的建议价，已钳到原价（批次 {}）", code, batch.getBatchNo());
@@ -182,11 +218,11 @@ public class PricingService {
             }
 
             StringBuilder fullReason = new StringBuilder(reason);
-            if (clamp.floorHit()) {
+            if (floorHit) {
                 fullReason.append("；已触到店主设定的最低折扣线 ")
                         .append(PricingPolicy.discountLabel(floor))
                         .append("（app.pricing.min-discount-rate），本可以更低到 ")
-                        .append(PricingPolicy.discountLabel(clamp.rawRate()))
+                        .append(PricingPolicy.discountLabel(rawRate))
                         .append("，被底线拦住");
             }
             if (adjustSeq > 1) {
@@ -205,10 +241,13 @@ public class PricingService {
             suggestion.setSuggestedPrice(price);
             suggestion.setDiscountRate(rate);
             suggestion.setStrategy(code);
+            String effective = proposal.effectiveStrategy() == null ? code : proposal.effectiveStrategy();
+            suggestion.setEffectiveStrategy(effective);
+            effectiveCounts.merge(effective, 1, Integer::sum);
             suggestion.setExpectedQty(proposal.expectedQty());
             suggestion.setReason(PricingPolicy.reason(fullReason.toString()));
-            suggestion.setPriceFloorHit(clamp.floorHit());
-            suggestion.setRawDiscountRate(clamp.rawRate());
+            suggestion.setPriceFloorHit(floorHit);
+            suggestion.setRawDiscountRate(rawRate);
             suggestion.setAdjustSeq(adjustSeq);
             suggestion.setFreshness(metrics.freshness());
             suggestion.setEstimatedSellableDays(metrics.estimatedSellableDays());
@@ -216,14 +255,39 @@ public class PricingService {
             suggestion.setCreatedAt(LocalDateTime.now());
             suggestionMapper.insert(suggestion);
             generated++;
+            if (replacing) {
+                replacedFallbacks++;
+            }
         }
         String note = limited.isEmpty() ? null
                 : "有 " + limited.size() + " 个批次因「同一批次每天最多调价 " + maxAdjust + " 次」被拒绝：" + limited.get(0);
         if (note != null) {
             log.info("[pricing] bizDate={} strategy={} 被每日调价上限拒绝 {} 个批次", bizDate, code, limited.size());
         }
-        log.info("[pricing] bizDate={} strategy={} 临期批次 {} 个，新生成建议 {} 条", bizDate, code, batches.size(), generated);
-        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note);
+        log.info("[pricing] bizDate={} strategy={} 临期批次 {} 个，新生成建议 {} 条，实际生效策略 {}",
+                bizDate, code, batches.size(), generated, effectiveCounts);
+        List<String> strategyNotes = new ArrayList<>();
+        int fallback = generated - effectiveCounts.getOrDefault(code, 0);
+        if (fallback > 0) {
+            String breakdown = effectiveCounts.entrySet().stream()
+                    .map(e -> e.getKey() + " " + e.getValue() + " 条")
+                    .collect(java.util.stream.Collectors.joining("、"));
+            strategyNotes.add("请求 " + code + "，其中 " + fallback + " 条实际由其它策略给出（" + breakdown
+                    + "）；原因写在每条建议的理由里，效果看板按实际生效策略统计");
+        }
+        if (replacedFallbacks > 0) {
+            strategyNotes.add("模型产物现已可用，" + replacedFallbacks + " 个早先回退规则版的批次已用模型重新生成（计一次调价）");
+        }
+        if (!keptFallbacks.isEmpty()) {
+            int kept = keptFallbacks.values().stream().mapToInt(Integer::intValue).sum();
+            String why = keptFallbacks.entrySet().stream()
+                    .map(e -> e.getKey() + "（" + e.getValue() + " 个）")
+                    .collect(java.util.stream.Collectors.joining("；"));
+            strategyNotes.add(kept + " 个批次今天早先回退了规则版，本次未重新生成：" + why);
+        }
+        String strategyNote = strategyNotes.isEmpty() ? null : String.join("；", strategyNotes);
+        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note,
+                effectiveCounts, strategyNote);
     }
 
     /** 5. 查询建议：bizDate 不传时自动取库里最新一天；strategy 不传返回全部策略。 */
@@ -246,10 +310,18 @@ public class PricingService {
                 .eq(code != null, PricingSuggestion::getStrategy, code)
                 .orderByAsc(PricingSuggestion::getDaysLeft)
                 .orderByAsc(PricingSuggestion::getId);
-        List<PricingSuggestion> suggestions = suggestionMapper.selectList(wrapper);
-        if (suggestions.isEmpty()) {
+        List<PricingSuggestion> all = suggestionMapper.selectList(wrapper);
+        if (all.isEmpty()) {
             return List.of();
         }
+        // 同一批次同一策略当天被重新生成过（MODEL 回退后用模型重做）：只展示最新的一条，旧的留在库里备查
+        Map<String, Long> newestId = new HashMap<>();
+        for (PricingSuggestion s : all) {
+            newestId.merge(s.getBatchId() + "|" + s.getStrategy(), s.getId(), Math::max);
+        }
+        List<PricingSuggestion> suggestions = all.stream()
+                .filter(s -> s.getId().equals(newestId.get(s.getBatchId() + "|" + s.getStrategy())))
+                .toList();
 
         List<Long> itemIds = suggestions.stream().map(PricingSuggestion::getItemId).distinct().toList();
         List<Long> batchIds = suggestions.stream().map(PricingSuggestion::getBatchId).distinct().toList();
@@ -271,7 +343,8 @@ public class PricingService {
                     s.getExpectedQty(), s.getReason(), decision != null,
                     decision == null ? null : decision.getFinalPrice(),
                     s.getPriceFloorHit(), s.getRawDiscountRate(), s.getAdjustSeq(),
-                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty()));
+                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty(),
+                    s.getEffectiveStrategy() == null ? s.getStrategy() : s.getEffectiveStrategy()));
         }
         return views;
     }
@@ -381,6 +454,12 @@ public class PricingService {
                 .eq(PricingSuggestion::getBizDate, bizDate)
                 .eq(PricingSuggestion::getStrategy, strategy)
                 .eq(PricingSuggestion::getBatchId, batchId)
+                .orderByDesc(PricingSuggestion::getId)
                 .last("LIMIT 1"));
+    }
+
+    private boolean hasDecision(Long suggestionId) {
+        return decisionMapper.selectCount(Wrappers.<PricingDecision>lambdaQuery()
+                .eq(PricingDecision::getSuggestionId, suggestionId)) > 0;
     }
 }

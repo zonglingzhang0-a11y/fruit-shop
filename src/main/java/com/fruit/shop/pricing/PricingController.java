@@ -2,9 +2,11 @@ package com.fruit.shop.pricing;
 
 import com.fruit.shop.pricing.dto.DecisionRequest;
 import com.fruit.shop.pricing.dto.DecisionResponse;
+import com.fruit.shop.pricing.dto.ModelInputResponse;
 import com.fruit.shop.pricing.dto.SuggestionGenerateRequest;
 import com.fruit.shop.pricing.dto.SuggestionGenerateResponse;
 import com.fruit.shop.pricing.dto.SuggestionView;
+import com.fruit.shop.pricing.strategy.ModelPricingStrategy;
 import com.fruit.shop.support.ApiResult;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,9 +26,14 @@ import java.util.List;
 public class PricingController {
 
     private final PricingService pricingService;
+    private final ModelInputService modelInputService;
+    private final ModelPricingStrategy modelStrategy;
 
-    public PricingController(PricingService pricingService) {
+    public PricingController(PricingService pricingService, ModelInputService modelInputService,
+                             ModelPricingStrategy modelStrategy) {
         this.pricingService = pricingService;
+        this.modelInputService = modelInputService;
+        this.modelStrategy = modelStrategy;
     }
 
     /** 4. 生成定价建议（strategy=FIXED/RULE/MODEL，不传用配置里的生效策略）。 */
@@ -42,6 +49,24 @@ public class PricingController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
             @RequestParam(required = false) String strategy) {
         return ApiResult.ok(pricingService.query(bizDate, strategy));
+    }
+
+    /**
+     * 模型输入快照：给 scripts/export_model_suggestions.py 取数（只读）。
+     * 只含 bizDate 之前的成交，模型看不到当天及以后的结果。
+     */
+    @GetMapping("/model-input")
+    public ApiResult<ModelInputResponse> modelInput(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
+            @RequestParam(required = false) Integer historyDays) {
+        return ApiResult.ok(modelInputService.snapshot(bizDate, historyDays));
+    }
+
+    /** 模型产物状态：选 MODEL 生成建议前先看产物在不在、是不是这个业务日的（不可用会回退规则版）。 */
+    @GetMapping("/model-status")
+    public ApiResult<ModelPricingStrategy.ModelStatus> modelStatus(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate) {
+        return ApiResult.ok(modelStrategy.status(bizDate));
     }
 
     /** 6. 店主确认/改价，落 pricing_decision。 */

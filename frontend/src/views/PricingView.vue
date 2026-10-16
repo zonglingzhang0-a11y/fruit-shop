@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import { defaultBizDate } from '../utils/bizDate'
@@ -22,6 +22,23 @@ const STRATEGY_LABEL = {
   MODEL: '模型定价'
 }
 
+// 模型产物状态：选 MODEL 时告诉店主"这一天的建议是不是真的来自模型"，不可用会回退规则版
+const modelStatus = ref(null)
+
+async function loadModelStatus() {
+  if (strategy.value !== 'MODEL') {
+    modelStatus.value = null
+    return
+  }
+  try {
+    modelStatus.value = await api.modelStatus({ bizDate: bizDate.value })
+  } catch (e) {
+    modelStatus.value = { usable: false, message: '模型状态获取失败：' + (e?.message || e) }
+  }
+}
+
+watch([strategy, bizDate], loadModelStatus)
+
 const pendingRows = computed(() => rows.value.filter((r) => !r.decided))
 const acceptedCount = computed(() => rows.value.filter((r) => r.decided && r.accepted !== false).length)
 
@@ -40,9 +57,15 @@ async function load() {
 }
 
 async function generate() {
-  await api.generateSuggestions({ bizDate: bizDate.value, strategy: strategy.value })
-  ElMessage.success('建议已生成')
-  await load()
+  const res = await api.generateSuggestions({ bizDate: bizDate.value, strategy: strategy.value })
+  if (res?.strategyNote) {
+    // 例如请求 MODEL 但部分批次回退了规则版：如实提示，不当成"模型定价成功"
+    ElMessage.warning({ message: res.strategyNote, duration: 6000 })
+  } else {
+    ElMessage.success('建议已生成')
+  }
+  // 产物可能在打开页面之后才重新导出：生成完顺手刷新模型状态提示，和刚生成的建议对得上
+  await Promise.all([load(), loadModelStatus()])
 }
 
 function openDecision(row) {
@@ -78,10 +101,19 @@ async function submitDecision() {
 function discountText(rate) {
   if (rate === null || rate === undefined) return '-'
   const r = Number(rate)
-  return (r * 10).toFixed(1) + ' 折'
+  // 与后端理由里的写法一致：1.0 显示"原价"（而不是"10.0 折"），0.8 显示"8 折"，0.85 显示"8.5 折"
+  if (r >= 0.995) return '原价'
+  return Number((r * 10).toFixed(1)) + ' 折'
 }
 
-onMounted(load)
+function isFallback(row) {
+  return row.effectiveStrategy && row.effectiveStrategy !== row.strategy
+}
+
+onMounted(() => {
+  load()
+  loadModelStatus()
+})
 </script>
 
 <template>
@@ -108,6 +140,22 @@ onMounted(load)
 
       <el-alert v-if="error" :title="error" type="warning" :closable="false" show-icon />
 
+      <el-alert
+        v-if="strategy === 'MODEL' && modelStatus"
+        :type="modelStatus.usable ? 'success' : 'warning'"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 12px"
+      >
+        <template #title>
+          <span v-if="modelStatus.usable">
+            模型可用：{{ modelStatus.artifactBizDate }} 的产物（{{ modelStatus.modelVersion }}，{{ modelStatus.generatedAt }} 生成，
+            {{ modelStatus.suggestionCount }} 条建议）
+          </span>
+          <span v-else>{{ modelStatus.message }}；此时生成的 MODEL 建议会回退规则版，并在表格里标出</span>
+        </template>
+      </el-alert>
+
       <div v-if="rows.length" class="summary">
         共 {{ rows.length }} 条，待决策 {{ pendingRows.length }} 条，已采纳 {{ acceptedCount }} 条
       </div>
@@ -133,6 +181,12 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="折扣" width="90">
           <template #default="{ row }">{{ discountText(row.discountRate) }}</template>
+        </el-table-column>
+        <el-table-column label="实际策略" width="136">
+          <template #default="{ row }">
+            <el-tag v-if="isFallback(row)" type="warning" size="small">回退{{ STRATEGY_LABEL[row.effectiveStrategy] || row.effectiveStrategy }}</el-tag>
+            <span v-else>{{ STRATEGY_LABEL[row.effectiveStrategy || row.strategy] || row.strategy }}</span>
+          </template>
         </el-table-column>
         <el-table-column label="期望销量" width="100">
           <template #default="{ row }">

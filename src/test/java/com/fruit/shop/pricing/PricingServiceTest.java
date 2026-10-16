@@ -20,8 +20,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -171,13 +169,11 @@ class PricingServiceTest {
         assertThat(PricingPolicy.isCandidate(view.discountRate())).isTrue();
         assertThat(view.suggestedPrice()).isLessThanOrEqualTo(view.originalPrice());
         assertThat(view.reason()).isNotBlank();
-
-        boolean artifactExists = Files.isRegularFile(Paths.get(props.getPricing().getModelFile()));
-        if (artifactExists) {
-            assertThat(view.reason()).contains("模型");
-        } else {
-            assertThat(view.reason()).contains("回退规则版");
-        }
+        // 仓库里的产物是 2026-06-29 的（或者没有产物）：对 2035 年的业务日一定不可用 → 如实回退并记为 RULE
+        assertThat(view.reason()).contains("回退规则版");
+        assertThat(view.effectiveStrategy()).isEqualTo("RULE");
+        assertThat(response.effectiveStrategies()).containsEntry("RULE", response.generated());
+        assertThat(response.strategyNote()).contains("实际由其它策略给出");
     }
 
     @Test

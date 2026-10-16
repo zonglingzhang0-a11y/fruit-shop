@@ -185,6 +185,8 @@ class ApiContractTest {
     void pushContract() {
         LocalDate bizDate = LocalDate.of(2035, 5, 4);
         long itemId = createItem("接口推送果", "测试接口推送类", 9.0, 24.0, 4);
+        // 推送发送前会复核库存（无在售批次不发），所以先登记一批货
+        createBatch(itemId, bizDate.minusDays(1), 4, 10, 9.0);
         Member member = ShopFixtures.member(memberMapper, "接口会员", true);
         ShopFixtures.pref(memberPrefMapper, member.getId(), "测试接口推送类", "7.000", 3);
 

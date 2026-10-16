@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -74,4 +75,10 @@ public class PushTask {
 
     /** 实际发送时刻；未发送为 null。 */
     private LocalDateTime sentAt;
+
+    /**
+     * 预览时店主看到的折扣系数（可空）。只在"没有店主确认价"时起作用：发送只传 taskId 也沿用这个折扣，
+     * 不会退回规则默认档、把店主没看过的价格发出去；有确认价时一律以确认价为准。
+     */
+    private BigDecimal discountRate;
 }

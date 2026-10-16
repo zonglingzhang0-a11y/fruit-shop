@@ -14,5 +14,9 @@ public record SuggestionGenerateResponse(
         String strategy,
         int generated,
         int skippedByAdjustLimit,
-        String adjustLimitNote) {
+        String adjustLimitNote,
+        /** 本次新生成的建议按实际生效策略计数，例如 {MODEL=15, RULE=6}。 */
+        java.util.Map<String, Integer> effectiveStrategies,
+        /** 有建议实际由其它策略给出时的说明（例如 MODEL 回退规则版），否则为空。 */
+        String strategyNote) {
 }

@@ -12,6 +12,7 @@ import com.fruit.shop.member.mapper.MemberMapper;
 import com.fruit.shop.pricing.PricingPolicy;
 import com.fruit.shop.pricing.PricingService;
 import com.fruit.shop.push.PushEffectService;
+import com.fruit.shop.push.domain.PushLog;
 import com.fruit.shop.sales.domain.SalesRecord;
 import com.fruit.shop.sales.domain.StrategyDailyStat;
 import com.fruit.shop.sales.dto.EffectDailyRow;
@@ -24,8 +25,11 @@ import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import com.fruit.shop.support.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,6 +48,9 @@ import java.util.Map;
  * <ul>
  *   <li>按 batch_id 扣减 {@code fruit_batch.remain_qty}；扣到 0 时状态置 {@code SOLD_OUT}（退货回补后回到 ON_SALE）；</li>
  *   <li>数量超过现存量时按现存量扣减（避免负库存），并在响应里用 {@code overSell=true} 明确告知，不静默改数；</li>
+ *   <li>扣减前对批次加行锁（{@code SELECT ... FOR UPDATE}），并发回流排队执行，不会互相覆盖库存；</li>
+ *   <li>可选业务流水号 {@code requestNo} 做幂等：同一流水号只记一次，重复提交直接返回首次那笔（{@code duplicate=true}）；
+ *       并发重复提交由批次行锁排队后再查一次，兜底靠 {@code sales_record.request_no} 唯一索引（撞索引整笔回滚后返回首笔）；</li>
  *   <li>每笔回流都写 {@code sales_record}，并按"该批次最近一条定价建议"的策略累加 {@code strategy_daily_stat}，
  *       让效果看板能直接对比 FIXED/RULE/MODEL。</li>
  * </ul>
@@ -71,6 +78,7 @@ public class SalesService {
     private final StrategyStatService statService;
     private final PricingService pricingService;
     private final PushEffectService pushEffectService;
+    private final TransactionTemplate tx;
 
     public SalesService(SalesRecordMapper salesMapper,
                         StrategyDailyStatMapper statMapper,
@@ -81,7 +89,8 @@ public class SalesService {
                         ItemService itemService,
                         StrategyStatService statService,
                         PricingService pricingService,
-                        PushEffectService pushEffectService) {
+                        PushEffectService pushEffectService,
+                        PlatformTransactionManager transactionManager) {
         this.salesMapper = salesMapper;
         this.statMapper = statMapper;
         this.batchMapper = batchMapper;
@@ -92,16 +101,45 @@ public class SalesService {
         this.statService = statService;
         this.pricingService = pricingService;
         this.pushEffectService = pushEffectService;
+        this.tx = new TransactionTemplate(transactionManager);
+        // 读已提交：锁到批次之后的普通查询（幂等查重、回读批次、FIFO 候选）要看到别的事务刚提交的数据。
+        // H2 默认就是读已提交；MySQL 默认可重复读会沿用事务里第一次读时的快照，读不到刚提交的首笔
+        this.tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
     // ------------------------------------------------------------------ 12. 销售回流
 
-    @Transactional
+    /**
+     * 销售回流入口。事务用 {@link TransactionTemplate} 显式包一层（而不是 {@code @Transactional}），
+     * 是为了在"同一流水号并发提交、后到的一笔撞唯一索引"时：先让那笔整体回滚（库存扣减一起撤销），
+     * 再在新事务里查出首笔记录返回——这一步必须在原事务之外做。
+     */
     public SalesFeedbackResponse feedback(SalesFeedbackRequest request) {
+        String requestNo = normalizeRequestNo(request.getRequestNo());
+        try {
+            return tx.execute(status -> doFeedback(request, requestNo));
+        } catch (DuplicateKeyException race) {
+            if (requestNo == null) {
+                throw race;
+            }
+            log.info("[sales] 流水号 {} 并发重复提交，撞唯一索引后已回滚本笔，返回首笔记录", requestNo);
+            return tx.execute(status -> {
+                SalesRecord existing = findByRequestNo(requestNo);
+                if (existing == null) {
+                    throw race;
+                }
+                return duplicateResponse(existing, request, requestNo);
+            });
+        }
+    }
+
+    private SalesFeedbackResponse doFeedback(SalesFeedbackRequest request, String requestNo) {
         LocalDate bizDate = request.getBizDate();
-        BigDecimal quantity = request.getQuantity();
+        // 数量按库表精度（两位小数）一次性归一：扣库存、写流水、幂等比对都用同一个值，
+        // 否则 1.235 落库成 1.24 后，同一请求重试会被误判为"流水号对应了不同数量"
+        BigDecimal quantity = signedQuantity(request);
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) == 0) {
-            throw BusinessException.badRequest("quantity 不能为 0");
+            throw BusinessException.badRequest("quantity 不能为 0（按两位小数计）");
         }
         boolean isReturn = Boolean.TRUE.equals(request.getIsReturn()) || quantity.compareTo(BigDecimal.ZERO) < 0;
         BigDecimal requested = quantity.abs();
@@ -120,7 +158,9 @@ public class SalesService {
         FruitBatch batch = null;
         boolean autoPicked = false;
         if (request.getBatchId() != null) {
-            batch = batchService.requireBatch(request.getBatchId());
+            batchService.requireBatch(request.getBatchId());
+            // 行锁：同一批次的并发回流在这里排队，下面的读—改—写才安全
+            batch = batchMapper.selectByIdForUpdate(request.getBatchId());
             if (itemId == null) {
                 itemId = batch.getItemId();
             } else if (!itemId.equals(batch.getItemId())) {
@@ -132,10 +172,18 @@ public class SalesService {
                 throw BusinessException.badRequest("itemId 与 batchId 至少传一个");
             }
             itemService.requireItem(itemId);
-            batch = fifoBatch(itemId);
+            batch = lockFifoBatch(itemId);
             autoPicked = batch != null;
         }
         FruitItem item = itemId == null ? null : itemMapper.selectById(itemId);
+
+        // 幂等：放在批次加锁之后查，同一流水号的并发请求会在上面的行锁处排队，后到的这里就能看到首笔
+        if (requestNo != null) {
+            SalesRecord existing = findByRequestNo(requestNo);
+            if (existing != null) {
+                return duplicateResponse(existing, request, requestNo);
+            }
+        }
 
         BigDecimal soldQty = requested;
         BigDecimal remainQty = null;
@@ -187,6 +235,8 @@ public class SalesService {
             record.setMemberId(memberId);
             record.setSource(request.getSource() == null || request.getSource().isBlank()
                     ? "REAL" : request.getSource().trim().toUpperCase());
+            record.setRequestNo(requestNo);
+            record.setRequestedQty(isReturn ? requested.negate() : requested);
             salesMapper.insert(record);
             salesRecordId = record.getId();
 
@@ -228,7 +278,84 @@ public class SalesService {
                 PushEffectService.CONVERT_WINDOW_HOURS,
                 attribution == null
                         ? (memberId == null ? "本笔没有 memberId，不参与推送转化归因" : "退货不参与推送转化归因")
-                        : attribution.note());
+                        : attribution.note(),
+                requestNo, false);
+    }
+
+    // ------------------------------------------------------------------ 幂等（业务流水号）
+
+    private static String normalizeRequestNo(String requestNo) {
+        if (requestNo == null || requestNo.isBlank()) {
+            return null;
+        }
+        String trimmed = requestNo.trim();
+        if (trimmed.length() > 64) {
+            throw BusinessException.badRequest("requestNo 最长 64 个字符");
+        }
+        return trimmed;
+    }
+
+    /** 请求数量：两位小数（与 sales_record.quantity 同精度）；isReturn=true 且传了正数时按负数处理。 */
+    private static BigDecimal signedQuantity(SalesFeedbackRequest request) {
+        if (request.getQuantity() == null) {
+            return null;
+        }
+        BigDecimal quantity = PricingPolicy.round2(request.getQuantity());
+        return Boolean.TRUE.equals(request.getIsReturn()) && quantity.signum() > 0 ? quantity.negate() : quantity;
+    }
+
+    private SalesRecord findByRequestNo(String requestNo) {
+        return salesMapper.selectOne(Wrappers.<SalesRecord>lambdaQuery()
+                .eq(SalesRecord::getRequestNo, requestNo)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 重复提交：不扣库存、不写流水、不写统计，原样回放首笔的结果（含 overSell、推送归因）与批次当前状态。
+     * 同一流水号却换了业务日/商品/批次/数量/单价/退货方向，说明调用方把流水号用错了，
+     * 拒绝（409）而不是悄悄返回旧结果——否则第二笔真实销售会被静默吞掉。
+     */
+    private SalesFeedbackResponse duplicateResponse(SalesRecord existing, SalesFeedbackRequest request, String requestNo) {
+        BigDecimal requestedSigned = signedQuantity(request);
+        // 种子/旧数据没有 requested_qty 时，以实记数量为准
+        BigDecimal recordedRequested = existing.getRequestedQty() != null
+                ? existing.getRequestedQty() : existing.getQuantity();
+        boolean sameDate = request.getBizDate() == null || request.getBizDate().equals(existing.getBizDate());
+        boolean sameItem = request.getItemId() == null || request.getItemId().equals(existing.getItemId());
+        boolean sameBatch = request.getBatchId() == null || request.getBatchId().equals(existing.getBatchId());
+        boolean sameUnitPrice = PricingPolicy.round2(request.getUnitPrice())
+                .compareTo(PricingPolicy.round2(existing.getUnitPrice())) == 0;
+        boolean sameQty = requestedSigned != null && requestedSigned.compareTo(recordedRequested) == 0;
+        if (!(sameDate && sameItem && sameBatch && sameUnitPrice && sameQty)) {
+            throw BusinessException.conflict("业务流水号 " + requestNo + " 已用于另一笔销售（销售流水 #" + existing.getId()
+                    + "：业务日 " + existing.getBizDate() + "，itemId=" + existing.getItemId()
+                    + "，batchId=" + existing.getBatchId()
+                    + "，数量 " + PricingPolicy.qty(recordedRequested) + "，单价 " + PricingPolicy.money(existing.getUnitPrice())
+                    + "）。如果这是同一笔的重试，请按首次提交的内容原样重发；如果是新的一笔，请换一个流水号");
+        }
+        FruitBatch batch = existing.getBatchId() == null ? null : batchMapper.selectById(existing.getBatchId());
+        boolean isReturn = Boolean.TRUE.equals(existing.getIsReturn());
+        boolean overSell = !isReturn && recordedRequested.abs().compareTo(existing.getQuantity().abs()) > 0;
+        PushLog attributed = isReturn ? null : pushEffectService.attributedLogOf(existing.getId());
+        String strategy = statService.inferStrategy(existing.getBatchId(), existing.getItemId(), existing.getBizDate());
+        String message = "重复提交：流水号 " + requestNo + " 已在 " + existing.getSaleTime() + " 记为销售流水 #" + existing.getId()
+                + "，本次没有重复扣减库存、没有重复写流水和统计"
+                + (overSell ? "（首次提交时请求数量超过现存量，已按现存量回流）" : "")
+                + (batch == null ? "" : "；批次当前剩余 " + PricingPolicy.qty(batch.getRemainQty()));
+        log.info("[sales] 重复提交 requestNo={} salesRecordId={}，已忽略", requestNo, existing.getId());
+        return new SalesFeedbackResponse(
+                batch == null ? null : batch.getRemainQty(),
+                batch == null ? null : batch.getStatus(),
+                existing.getId(), existing.getBizDate(), existing.getItemId(),
+                existing.getBatchId(), batch == null ? null : batch.getBatchNo(),
+                recordedRequested.abs(), existing.getQuantity().abs(), overSell, false, isReturn,
+                strategy, false, message, existing.getMemberId(),
+                attributed == null ? null : attributed.getId(), attributed != null,
+                PushEffectService.CONVERT_WINDOW_HOURS,
+                attributed == null
+                        ? "重复提交不再触发归因（首笔写入时已经匹配过，未命中推送）"
+                        : "首笔已归因到 push_log #" + attributed.getId() + "（重复提交不再重复归因）",
+                requestNo, true);
     }
 
     // ------------------------------------------------------------------ 11. 效果看板
@@ -393,11 +520,35 @@ public class SalesService {
     }
 
     /** FIFO：该商品最早到期的在售批次。 */
-    private FruitBatch fifoBatch(Long itemId) {
+    /**
+     * 先进先出选批次并加行锁。选中与加锁之间该批次可能被并发请求卖空，
+     * 所以锁到之后再核对一次；不再在售就换下一个批次（有限次重试，批次数有限）。
+     */
+    private FruitBatch lockFifoBatch(Long itemId) {
+        // 锁到后发现已卖空的批次记下来、下一轮排除：即使候选查询读到的是旧快照（如 MySQL 可重复读），也不会原地打转
+        List<Long> tried = new ArrayList<>();
+        for (int attempt = 0; attempt < 10; attempt++) {
+            FruitBatch candidate = fifoBatch(itemId, tried);
+            if (candidate == null) {
+                return null;
+            }
+            FruitBatch locked = batchMapper.selectByIdForUpdate(candidate.getId());
+            if (locked != null && STATUS_ON_SALE.equals(locked.getStatus())
+                    && nz(locked.getRemainQty()).compareTo(BigDecimal.ZERO) > 0) {
+                return locked;
+            }
+            tried.add(candidate.getId());
+        }
+        log.warn("[sales] itemId={} 连续 10 次锁到的批次都已卖空，本笔不扣库存", itemId);
+        return null;
+    }
+
+    private FruitBatch fifoBatch(Long itemId, List<Long> excludedIds) {
         return batchMapper.selectOne(Wrappers.<FruitBatch>lambdaQuery()
                 .eq(FruitBatch::getItemId, itemId)
                 .eq(FruitBatch::getStatus, STATUS_ON_SALE)
                 .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
+                .notIn(!excludedIds.isEmpty(), FruitBatch::getId, excludedIds)
                 .orderByAsc(FruitBatch::getExpireDate)
                 .last("LIMIT 1"));
     }

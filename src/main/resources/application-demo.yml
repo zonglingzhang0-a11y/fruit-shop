@@ -1,5 +1,7 @@
 # 演示口径：数据落在磁盘文件里，重启后仍在（H2 文件库，MySQL 兼容模式）。
-# 启动时仍然重建表结构（schema-h2.sql），种子数据由 com.fruit.shop.support.SeedDataLoader 导入。
+# 首次启动（空库）执行 schema-h2.sql 建表，种子数据由 com.fruit.shop.support.SeedDataLoader 导入；
+# 之后再启动库里已有表，就跳过建表脚本、保留店主录入的库存/决策/推送日志（见 app.db.keep-existing）。
+# 需要重置为干净的演示数据：启动时加 --app.db.keep-existing=false
 spring:
   datasource:
     url: jdbc:h2:file:./data/db/fruitshop;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
@@ -15,6 +17,9 @@ spring:
       schema-locations: classpath:db/schema-h2.sql
 
 app:
+  db:
+    # true：库里已有业务表时不再执行 DROP/CREATE 建表脚本（com.fruit.shop.config.SchemaInitConfig）
+    keep-existing: true
   seed:
     # data/seed/shop_*.csv 存在时是否自动导入（无文件则跳过，不影响启动）
     enabled: true

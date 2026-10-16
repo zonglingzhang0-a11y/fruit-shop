@@ -1,0 +1,29 @@
+# 部署口径：MySQL 8.0.19+（InnoDB，utf8mb4；开了 binlog 时 binlog_format 须为 ROW/MIXED）。
+# 启动：java -jar fruit-shop.jar --spring.profiles.active=mysql；完整步骤见 docs/01-技术方案.md「切换到 MySQL 8」
+#
+# 连接信息用环境变量覆盖（不要把真实密码写进仓库）：
+#   MYSQL_URL       默认 jdbc:mysql://localhost:3306/fruit_shop?...（库不存在时自动创建）
+#   MYSQL_USER      默认 root
+#   MYSQL_PASSWORD  默认空
+#
+# 首次启动（空库）执行 db/schema-mysql.sql 建表并导入种子；之后再启动保留数据，
+# 只给旧库补后来新加的列和索引（com.fruit.shop.config.SchemaInitConfig）。
+# 重置为干净的演示数据：启动时加 --app.db.keep-existing=false
+spring:
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/fruit_shop?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&connectionTimeZone=%2B08:00&forceConnectionTimeZoneToSession=true}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-mysql.sql
+      encoding: UTF-8
+  h2:
+    console:
+      enabled: false
+
+app:
+  db:
+    keep-existing: true

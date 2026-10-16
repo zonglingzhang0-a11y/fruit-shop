@@ -845,10 +845,11 @@ class ModelPricer:
 
         days_left_min = min(int(b.get("days_left") or 0) for b in rows)
         d_txt = "维持原价" if rate >= 0.999 else f"打{rate * 10:.0f}折"
+        # 选的就是原价时"不打折则…"与前一句完全相同，不重复写
+        counterfactual = "" if rate >= 0.999 else f"、不打折则{exp_full:.1f}件"
         reason = (
             f"模型定价：单品{len(rows)}个批次共{total_q:.0f}件（最临期剩余{days_left_min}天）；"
-            f"估计当日需求{lam_star_sum:.1f}件，{d_txt}期望售出{exp_qty:.1f}件、"
-            f"不打折则{exp_full:.1f}件；"
+            f"估计当日需求{lam_star_sum:.1f}件，{d_txt}期望售出{exp_qty:.1f}件{counterfactual}；"
             f"按含报废成本的单品总期望收益选{d_txt}"
             f"（估计弹性{self.model.beta.get(item_code, float('nan')):.2f}）"
         )
@@ -895,10 +896,12 @@ class ModelPricer:
         exp_qty = float(expected_sold(lam_by_day[k, di_star], q_arr)[0])
         exp_full = float(expected_sold(lam_by_day[k, 0], q_arr)[0])
         d_txt = "维持原价" if rate >= 0.999 else f"打{rate * 10:.0f}折"
+        counterfactual = "" if rate >= 0.999 else (
+            f"不打折则期望售出{exp_full:.1f}件、多留{max(remain_qty - exp_full, 0):.1f}件待报废；")
         reason = (
             f"模型定价：剩余{k}天、现存{remain_qty:.0f}件；"
             f"估计需求{lam_by_day[k, di_star]:.1f}件，{d_txt}期望售出{exp_qty:.1f}件；"
-            f"不打折则期望售出{exp_full:.1f}件、多留{max(remain_qty - exp_full, 0):.1f}件待报废；"
+            f"{counterfactual}"
             f"按含报废成本的期望收益选{d_txt}"
             f"（估计弹性{self.model.beta.get(item_code, float('nan')):.2f}）"
         )
