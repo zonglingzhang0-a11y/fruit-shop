@@ -4,7 +4,7 @@
 反复引用的数字，必须由数据算出来而不是手抄——否则改一次评测就要改四处文档。
 
 用法：
-    & 'C:\\Python314\\python.exe' scripts/report_metrics.py
+    python scripts/report_metrics.py
 
 实现说明：**只在"## 3. 主对比表"这一节内解析**（表格形如
 `| 指标 | FIXED | RULE | MODEL |`，单元格可能是 `68,369.7 ± 2,381.5`）。

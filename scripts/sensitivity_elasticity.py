@@ -13,7 +13,7 @@
   以及两个关键判断：① MODEL 是否仍优于 RULE；② 损耗率降低是否仍以毛利为代价。
 
 用法：
-    & 'C:\\Python314\\python.exe' scripts/sensitivity_elasticity.py --seeds 6
+    python scripts/sensitivity_elasticity.py --seeds 6
 """
 from __future__ import annotations
 

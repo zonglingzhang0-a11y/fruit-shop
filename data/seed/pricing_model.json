@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "bizDate": "2026-06-29",
-  "generatedAt": "2026-10-16T04:26:07",
-  "modelVersion": "pricing_model.py@68813fbd378e",
+  "generatedAt": "2026-10-17T20:39:15",
+  "modelVersion": "pricing_model.py@b6637fc24168",
   "modelStatus": "ok",
   "modelNote": "按单品联合决策 38 个单品、81 个在售批次；训练样本 2280 行，剔除缺货截断 41 行（期初库存由台账与销量重建，未扣日常损耗，部分断货日可能识别不到）",
   "inputSource": "seed",

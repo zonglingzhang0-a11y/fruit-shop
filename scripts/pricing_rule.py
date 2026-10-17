@@ -36,7 +36,7 @@
 对照实验就变成了"我的模型 A vs 我的模型 B"。**故意保持它朴素**是方法论要求。
 
 运行自检：
-    C:\\Python314\\python.exe scripts/pricing_rule.py --selftest
+    python scripts/pricing_rule.py --selftest
 """
 
 from __future__ import annotations

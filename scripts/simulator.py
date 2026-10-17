@@ -10,12 +10,12 @@
 2. 可 import 的评测台：``ShopSimulator`` 类，供 ``scripts/evaluate_strategies.py``
    在同一批消费者流上跑 FIXED / RULE / MODEL 三种策略
 
-复现命令（必须用 C:\\Python314\\python.exe）::
+复现命令（先 python -m pip install -r requirements.txt）::
 
     $OutputEncoding=[Text.Encoding]::UTF8; [Console]::OutputEncoding=[Text.Encoding]::UTF8; chcp 65001
-    & 'C:\\Python314\\python.exe' scripts/simulator.py run   --seed 20260701 --days 120 --warmup-days 60
-    & 'C:\\Python314\\python.exe' scripts/simulator.py check
-    & 'C:\\Python314\\python.exe' scripts/simulator.py hourly-from-public
+    python scripts/simulator.py run   --seed 20260701 --days 120 --warmup-days 60
+    python scripts/simulator.py check
+    python scripts/simulator.py hourly-from-public
 
 --------------------------------------------------------------------------------
 需求函数（写死在这里，文档 docs/02 同步）

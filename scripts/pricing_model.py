@@ -71,7 +71,7 @@
 所以这个近似对"留到明天"的价值是**略微保守**的。
 
 运行自检：
-    C:\\Python314\\python.exe scripts/pricing_model.py --selftest
+    python scripts/pricing_model.py --selftest
 """
 
 from __future__ import annotations

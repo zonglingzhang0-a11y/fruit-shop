@@ -36,13 +36,13 @@
 运行
 ----
     # 真实评测（需要 scripts/simulator.py 提供 ShopSimulator）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --seeds 20
+    python scripts/evaluate_strategies.py --seeds 20
 
     # 快速冒烟（3 个种子）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --quick
+    python scripts/evaluate_strategies.py --quick
 
     # 自检：用内置玩具环境验证整条流水线（结果写到临时目录，绝不污染 release/）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --selftest
+    python scripts/evaluate_strategies.py --selftest
 """
 
 from __future__ import annotations
@@ -1515,7 +1515,7 @@ def main() -> int:
     plt, cn = setup_matplotlib()
     made = _figs_all(per_seed, daily, args.figs, cn)
 
-    command = " ".join([r"C:\Python314\python.exe", "scripts/evaluate_strategies.py"] +
+    command = " ".join(["python", "scripts/evaluate_strategies.py"] +
                        [f"--seeds {args.seeds}", f"--days {args.days}", f"--history-days {args.history_days}",
                         f"--seed-base {args.seed_base}", f"--seed-step {args.seed_step}",
                         f"--min-discount-rate {args.min_discount_rate}"] +

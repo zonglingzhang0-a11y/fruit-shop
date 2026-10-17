@@ -158,7 +158,7 @@ python scripts\simulator.py run --seed 20260701 --days 120 --warmup-days 60
 python scripts\verify_seed_data.py         # 独立核验
 python scripts\evaluate_strategies.py --seeds 20 --min-discount-rate 0.60   # 三策略对照（约 4 分钟）
 ``````
-> Python 脚本需要 pandas / numpy / scipy / matplotlib（本机用 ``C:\Python314\python.exe`` 验证）。
+> Python 脚本的依赖固定在 ``requirements.txt``：``python -m pip install -r requirements.txt``（Python 3.12+）。
 
 ## 五、这个包里有什么
 

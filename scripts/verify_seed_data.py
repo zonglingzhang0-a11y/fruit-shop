@@ -4,7 +4,7 @@
 避免"用生成器的自检证明生成器正确"这种自证循环。
 
 用法:
-    & 'C:\\Python314\\python.exe' scripts/verify_seed_data.py
+    python scripts/verify_seed_data.py
 退出码 0 = 全部通过；1 = 有检查项失败。
 """
 from __future__ import annotations
