@@ -42,6 +42,7 @@ public class BatchService {
 
     private static final DateTimeFormatter BATCH_NO_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final String STATUS_ON_SALE = "ON_SALE";
+    private static final String STATUS_SOLD_OUT = "SOLD_OUT";
 
     private final FruitBatchMapper batchMapper;
     private final FruitItemMapper itemMapper;
@@ -182,10 +183,16 @@ public class BatchService {
         return filtered;
     }
 
+    /** 退货时列出的已售罄批次上限：只给最近到期的这些（退货发生在售出后不久），列表不至于拉出全部历史批次。 */
+    static final int SOLD_OUT_FOR_RETURN_LIMIT = 20;
+
     /**
      * 某单品有库存的在售批次，按销售回流 FIFO 的顺序（到期日、再按 id）排列。只读。
+     *
+     * @param includeSoldOut 退货用：在后面追加最近的已售罄批次（到期日倒序，最多 {@value #SOLD_OUT_FOR_RETURN_LIMIT} 个），
+     *                       退货要回补到货品原来的批次，而原批次往往已经卖空了
      */
-    public List<InStockBatchRow> inStock(Long itemId, LocalDate bizDate) {
+    public List<InStockBatchRow> inStock(Long itemId, LocalDate bizDate, boolean includeSoldOut) {
         if (itemId == null) {
             throw BusinessException.badRequest("itemId 不能为空");
         }
@@ -200,11 +207,21 @@ public class BatchService {
                 .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
                 .orderByAsc(FruitBatch::getExpireDate)
                 .orderByAsc(FruitBatch::getId));
+        if (includeSoldOut) {
+            batches = new ArrayList<>(batches);
+            batches.addAll(batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()
+                    .eq(FruitBatch::getItemId, itemId)
+                    .eq(FruitBatch::getStatus, STATUS_SOLD_OUT)
+                    .le(FruitBatch::getArriveDate, biz)
+                    .orderByDesc(FruitBatch::getExpireDate)
+                    .orderByDesc(FruitBatch::getId)
+                    .last("LIMIT " + SOLD_OUT_FOR_RETURN_LIMIT)));
+        }
         List<InStockBatchRow> rows = new ArrayList<>(batches.size());
         for (FruitBatch batch : batches) {
             rows.add(new InStockBatchRow(batch.getId(), batch.getBatchNo(), item.getId(), item.getItemName(),
                     item.getUnit(), batch.getArriveDate(), batch.getExpireDate(),
-                    daysLeft(biz, batch.getExpireDate()), batch.getRemainQty(), item.getBasePrice()));
+                    daysLeft(biz, batch.getExpireDate()), batch.getRemainQty(), item.getBasePrice(), batch.getStatus()));
         }
         return rows;
     }

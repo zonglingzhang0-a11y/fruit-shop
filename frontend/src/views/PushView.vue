@@ -78,11 +78,15 @@ function notifySend(res) {
   }
 }
 
-async function sendTask(taskId, taskBizDate) {
+// rate 只在"发送刚预览的那条"时传（预览与工具栏一致）；在列表里发送旧计划不传，后端用计划自己记下的折扣，
+// 免得工具栏上别的单品/折扣把这条计划的价格改掉
+async function sendTask(taskId, taskBizDate, rate) {
   sending.value = true
   try {
     // 发送预览时建好的那条计划（taskId），而不是再现拼一条新计划
-    const res = await api.sendPush({ taskId, bizDate: taskBizDate || bizDate.value, discountRate: discountRate.value })
+    const payload = { taskId, bizDate: taskBizDate || bizDate.value }
+    if (rate !== undefined && rate !== null) payload.discountRate = rate
+    const res = await api.sendPush(payload)
     notifySend(res)
     if (preview.value?.taskId === taskId && res?.taskStatus === 'SENT') {
       // 计划已发送，再点也只会命中幂等，直接收起预览
@@ -97,7 +101,7 @@ async function sendTask(taskId, taskBizDate) {
 }
 
 function doSend() {
-  if (preview.value?.taskId) sendTask(preview.value.taskId, preview.value.bizDate)
+  if (preview.value?.taskId) sendTask(preview.value.taskId, preview.value.bizDate, discountRate.value)
 }
 
 function copyText(text) {
@@ -112,6 +116,7 @@ const statsLoading = ref(false)
 const statsError = ref('')
 const attributing = ref(false)
 const logs = ref({}) // taskId → 逐条发送记录
+const expanded = ref(new Set()) // 当前展开的计划：刷新统计后要把它们的明细一并重新拉
 const logsLoading = ref({})
 const opening = ref({})
 
@@ -124,6 +129,10 @@ async function loadStats() {
   try {
     stats.value = await api.pushStats({ from: range.value[0], to: range.value[1] })
     logs.value = {}
+    const present = new Set((stats.value?.byTask || []).map((t) => t.taskId))
+    for (const taskId of expanded.value) {
+      if (present.has(taskId)) loadLogs(taskId)
+    }
   } catch (e) {
     statsError.value = '推送效果获取失败：' + (e?.message || e)
     stats.value = null
@@ -144,8 +153,9 @@ async function loadLogs(taskId) {
   }
 }
 
-function onExpand(row, expanded) {
-  if (expanded.some((r) => r.taskId === row.taskId) && !logs.value[row.taskId]) {
+function onExpand(row, expandedRows) {
+  expanded.value = new Set(expandedRows.map((r) => r.taskId))
+  if (expanded.value.has(row.taskId) && !logs.value[row.taskId]) {
     loadLogs(row.taskId)
   }
 }
@@ -156,7 +166,6 @@ async function markOpened(log) {
     const res = await api.markPushOpened({ logId: log.logId })
     ElMessage.success(res?.alreadyOpened ? '之前已标记过打开' : '已标记为打开')
     await loadStats()
-    await loadLogs(log.taskId)
   } catch (e) {
     // 错误提示由拦截器统一弹出
   } finally {

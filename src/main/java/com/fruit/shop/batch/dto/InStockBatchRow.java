@@ -10,6 +10,7 @@ import java.time.LocalDate;
  *
  * @param daysLeft  相对 bizDate 的剩余天数（可能为负：已过期但还没被扫描标记报废）
  * @param basePrice 单品原价，录入成交价时的默认值参考
+ * @param status    ON_SALE；带 includeSoldOut 时还可能是 SOLD_OUT（退货要回补到原批次）
  */
 public record InStockBatchRow(
         Long batchId,
@@ -21,5 +22,6 @@ public record InStockBatchRow(
         LocalDate expireDate,
         Integer daysLeft,
         BigDecimal remainQty,
-        BigDecimal basePrice) {
+        BigDecimal basePrice,
+        String status) {
 }

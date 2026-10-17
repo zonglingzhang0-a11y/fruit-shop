@@ -45,19 +45,25 @@ function usePreset(days) {
   load()
 }
 
+// 连点预设时，慢的旧请求可能后回来：只采用最后一次请求的结果
+let loadSeq = 0
 async function load() {
   if (!range.value?.[0] || !range.value?.[1]) return
+  const seq = ++loadSeq
   loading.value = true
   error.value = ''
+  loadTodos(seq)
   try {
-    effect.value = await api.effect({ from: range.value[0], to: range.value[1] })
+    const data = await api.effect({ from: range.value[0], to: range.value[1] })
+    if (seq === loadSeq) effect.value = data
   } catch (e) {
-    error.value = '效果数据获取失败：' + (e?.message || e)
-    effect.value = null
+    if (seq === loadSeq) {
+      error.value = '效果数据获取失败：' + (e?.message || e)
+      effect.value = null
+    }
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
-  loadTodos()
 }
 
 const strategyRows = computed(() => {
@@ -100,7 +106,7 @@ const scrapSeries = computed(() => trendSeries('scrapRate'))
 const todoDate = computed(() => range.value?.[1] || defaultBizDate())
 const todos = ref({ pending: null, atRisk: null, atRiskScrap: null, planned: null })
 
-async function loadTodos() {
+async function loadTodos(seq) {
   const bizDate = todoDate.value
   const [suggestions, atRisk, push] = await Promise.allSettled([
     api.suggestions({ bizDate }),
@@ -109,6 +115,7 @@ async function loadTodos() {
   ])
   const list = suggestions.status === 'fulfilled' && Array.isArray(suggestions.value) ? suggestions.value : null
   const risk = atRisk.status === 'fulfilled' && Array.isArray(atRisk.value) ? atRisk.value : null
+  if (seq !== loadSeq) return
   todos.value = {
     pending: list ? list.filter((s) => !s.decided).length : null,
     atRisk: risk ? risk.length : null,
@@ -170,8 +177,9 @@ onMounted(load)
         <div class="tiles">
           <div class="tile">
             <div class="tile-label">损耗率</div>
-            <div class="tile-value">{{ pct(effect.scrapRate) }}</div>
-            <div class="tile-sub">报废 {{ qty(effect.scrapQty) }} ÷（售出 + 报废）</div>
+            <!-- 没有策略日统计时按销售流水汇总：流水里没有报废数据，不能把 0 当成真实损耗率 -->
+            <div class="tile-value">{{ byStrategy ? pct(effect.scrapRate) : '-' }}</div>
+            <div class="tile-sub">{{ byStrategy ? `报废 ${qty(effect.scrapQty)} ÷（售出 + 报废）` : '销售流水不含报废数据' }}</div>
           </div>
           <div class="tile">
             <div class="tile-label">售出</div>
@@ -215,7 +223,7 @@ onMounted(load)
           <div class="chart-title">每日毛利</div>
           <LineChart :series="profitSeries" :xs="days" :format="moneyCompact" />
         </div>
-        <div>
+        <div v-if="byStrategy">
           <div class="chart-title">每日损耗率</div>
           <LineChart :series="scrapSeries" :xs="days" :format="pct" />
         </div>

@@ -34,7 +34,7 @@
 # 1. 生成环境配置（检测 JDK/Maven/Node/Python，选定 Maven 镜像）
 powershell -ExecutionPolicy Bypass -File scripts/setup.ps1
 
-# 2. 构建与测试（本机 Maven 不在 PATH，统一走 wrapper；150 个用例）
+# 2. 构建与测试（本机 Maven 不在 PATH，统一走 wrapper；154 个用例）
 .\scripts\mvn.ps1 -B test
 
 # Python 依赖（一次）：python 指 3.12+ 的解释器；Windows 上 PATH 里的 python 不全时可以用 py -3.14
@@ -79,7 +79,7 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 
 | 验证链 | 命令 | 实测结果 |
 | --- | --- | --- |
-| 后端测试 | `.\scripts\mvn.ps1 -B clean test` | **150 个用例全绿**（含接口契约锁、NFR-03 无自动执行、定时任务白名单；H2 与 MySQL profile 各跑一遍） |
+| 后端测试 | `.\scripts\mvn.ps1 -B clean test` | **154 个用例全绿**（含接口契约锁、NFR-03 无自动执行、定时任务白名单；H2 与 MySQL profile 各跑一遍） |
 | 种子数据自洽 | `python scripts/verify_seed_data.py` | **全部检查通过**（台账不一致 0/2083；营业时段形状 Spearman r=0.996） |
 | 接口端到端 | `powershell -File scripts/smoke.ps1` | **21 次接口调用全绿**（临期 21 条、建议 6 折并附理由、高峰 10 点→推送 9 点） |
 | 浏览器端到端 | `powershell -File scripts/e2e-browser.ps1` | **7 个页面全部渲染正常**（工作台 6 个 + 顾客端 H5），无控制台报错、无失败请求 |

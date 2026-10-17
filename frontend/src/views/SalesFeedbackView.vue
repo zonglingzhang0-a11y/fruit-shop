@@ -37,7 +37,8 @@ function newRequestNo() {
 
 const selectedItem = computed(() => items.value.find((i) => i.id === form.value.itemId) || null)
 const selectedBatch = computed(() => batches.value.find((b) => b.batchId === form.value.batchId) || null)
-const fifoBatch = computed(() => batches.value[0] || null)
+// 不选批次时后端自动扣的那批（最早到期的在售批次）；退货不走自动挑选
+const fifoBatch = computed(() => (form.value.isReturn ? null : batches.value.find((b) => b.status !== 'SOLD_OUT') || null))
 
 function defaultPrice() {
   const batch = selectedBatch.value || fifoBatch.value
@@ -72,18 +73,22 @@ async function loadConfirmedPrices() {
   }
 }
 
+let batchSeq = 0
 async function loadBatches() {
+  const seq = ++batchSeq
   batches.value = []
   if (!form.value.itemId) return
   loadingBatches.value = true
   try {
-    const data = await api.inStock({ itemId: form.value.itemId, bizDate: bizDate.value })
+    // 退货要回补到货品原来的批次，而原批次往往已经卖空：退货时连最近的已售罄批次一起列出来
+    const data = await api.inStock({ itemId: form.value.itemId, bizDate: bizDate.value, includeSoldOut: form.value.isReturn })
+    if (seq !== batchSeq) return // 期间又换了单品/日期/退货开关：丢弃过期的响应
     batches.value = Array.isArray(data) ? data : []
     if (form.value.batchId && !batches.value.some((b) => b.batchId === form.value.batchId)) {
       form.value.batchId = null
     }
   } finally {
-    loadingBatches.value = false
+    if (seq === batchSeq) loadingBatches.value = false
   }
 }
 
@@ -95,6 +100,10 @@ watch(() => form.value.itemId, async () => {
 watch(() => form.value.batchId, () => {
   form.value.unitPrice = defaultPrice()
 })
+watch(() => form.value.isReturn, async () => {
+  await loadBatches()
+  form.value.unitPrice = defaultPrice()
+})
 watch(bizDate, async () => {
   await Promise.all([loadBatches(), loadConfirmedPrices()])
   form.value.unitPrice = defaultPrice()
@@ -103,15 +112,23 @@ watch(bizDate, async () => {
 watch([form, bizDate], () => { pendingRequestNo = null }, { deep: true })
 
 function batchLabel(b) {
+  if (b.status === 'SOLD_OUT') return `${b.batchNo} · 已售罄 · 到期 ${b.expireDate}`
   const left = b.daysLeft < 0 ? `已过期 ${-b.daysLeft} 天` : `剩 ${b.daysLeft} 天`
   return `${b.batchNo} · ${left} · 库存 ${Number(b.remainQty)}${b.unit || ''}`
 }
+
+const batchPlaceholder = computed(() => {
+  if (form.value.isReturn) return batches.value.length ? '退货：请选择货品原来的批次' : '该单品没有可回补的批次'
+  return fifoBatch.value ? `自动：${fifoBatch.value.batchNo}（最早到期）` : '该单品当前没有在售库存'
+})
 
 async function submit() {
   if (!bizDate.value) return ElMessage.warning('请先选择营业日')
   if (!form.value.itemId) return ElMessage.warning('请选择单品')
   if (!(Number(form.value.quantity) > 0)) return ElMessage.warning('数量必须大于 0（退货请打开"退货"开关，数量仍填正数）')
   if (form.value.unitPrice == null || Number(form.value.unitPrice) < 0) return ElMessage.warning('请填写成交价')
+  // 退货不自动挑批次：自动挑会把退回的货加到别的批次（甚至别的到期日）上，库存和策略统计都会记错
+  if (form.value.isReturn && !form.value.batchId && batches.value.length) return ElMessage.warning('退货请选择货品原来的批次')
 
   if (!pendingRequestNo) pendingRequestNo = newRequestNo()
   const payload = {
@@ -180,11 +197,11 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="批次">
           <el-select v-model="form.batchId" clearable :loading="loadingBatches" :disabled="!form.itemId"
-                     :placeholder="fifoBatch ? `自动：${fifoBatch.batchNo}（最早到期）` : '该单品当前没有在售库存'"
+                     :placeholder="batchPlaceholder"
                      style="width: 420px">
             <el-option v-for="b in batches" :key="b.batchId" :label="batchLabel(b)" :value="b.batchId" />
           </el-select>
-          <div v-if="form.itemId && !loadingBatches && batches.length === 0" class="hint warn">
+          <div v-if="form.itemId && !loadingBatches && batches.length === 0 && !form.isReturn" class="hint warn">
             该单品当前没有在售库存：仍可登记（只记成交、不扣库存），请核对是否漏登了入库
           </div>
         </el-form-item>

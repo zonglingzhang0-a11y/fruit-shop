@@ -67,7 +67,9 @@ class InStockBatchTest {
         List<Long> ids = new ArrayList<>();
         data.forEach(n -> ids.add(n.path("batchId").asLong()));
 
-        // sameDayA 与 sameDayB 同一天到期（bizDate+1），按 id 先后；later 最晚到期；售罄的不出现
+        // sameDayA 与 sameDayB 同一天到期（bizDate+1），按 id 先后；later 最晚到期；售罄的不出现。
+        // 注：H2 与 InnoDB 对同键行本来就按主键顺序返回，"再按 id"这条兜底规则在测试里区分不出来，它保证的是跨库可复现
+        // 而不是改变当前结果，所以这里只断言最终顺序。
         assertThat(ids).containsExactly(sameDayA.getId(), sameDayB.getId(), later.getId());
         JsonNode first = data.get(0);
         assertThat(first.path("daysLeft").asInt()).isEqualTo(1);
@@ -84,6 +86,41 @@ class InStockBatchTest {
         SalesFeedbackResponse res = salesService.feedback(sale);
         assertThat(res.batchAutoPicked()).isTrue();
         assertThat(res.batchId()).as("自动挑选与列表第一行一致").isEqualTo(sameDayA.getId());
+    }
+
+    @Test
+    @DisplayName("退货用 includeSoldOut=true：在后面追加已售罄批次（到期日倒序），默认不列")
+    void includesSoldOutBatchesForReturns() throws Exception {
+        LocalDate bizDate = LocalDate.of(2036, 3, 20);
+        FruitItem item = ShopFixtures.item(itemMapper, "退货梨", ShopFixtures.unique("退货类"), "3.00", "8.00", 5);
+        FruitBatch onSale = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(1), 5, "10", "3.00");
+        FruitBatch soldOld = soldOut(ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 3, "5", "3.00"));
+        FruitBatch soldNew = soldOut(ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 3, "5", "3.00"));
+        FruitBatch notArrived = soldOut(ShopFixtures.batch(batchMapper, item.getId(), bizDate.plusDays(2), 3, "5", "3.00"));
+
+        List<Long> plain = ids(get("/api/batches/in-stock?itemId=" + item.getId() + "&bizDate=" + bizDate).path("data"));
+        assertThat(plain).containsExactly(onSale.getId());
+
+        JsonNode data = get("/api/batches/in-stock?itemId=" + item.getId() + "&bizDate=" + bizDate
+                + "&includeSoldOut=true").path("data");
+        // 在售的在前；已售罄的按到期日倒序（最近卖空的在前）；业务日之后才到货的不列
+        assertThat(ids(data)).containsExactly(onSale.getId(), soldNew.getId(), soldOld.getId())
+                .doesNotContain(notArrived.getId());
+        assertThat(data.get(1).path("status").asText()).isEqualTo("SOLD_OUT");
+        assertThat(data.get(0).path("status").asText()).isEqualTo("ON_SALE");
+    }
+
+    private FruitBatch soldOut(FruitBatch batch) {
+        batch.setRemainQty(BigDecimal.ZERO);
+        batch.setStatus("SOLD_OUT");
+        batchMapper.updateById(batch);
+        return batch;
+    }
+
+    private static List<Long> ids(JsonNode data) {
+        List<Long> ids = new ArrayList<>();
+        data.forEach(n -> ids.add(n.path("batchId").asLong()));
+        return ids;
     }
 
     @Test

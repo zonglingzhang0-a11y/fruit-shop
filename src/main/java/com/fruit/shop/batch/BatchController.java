@@ -54,13 +54,15 @@ public class BatchController {
     }
 
     /**
-     * 3d. 某单品有库存的在售批次（销售回流录入页"选批次"用），顺序与回流不指定批次时的 FIFO 自动挑选一致。只读。
+     * 3d. 某单品有库存的在售批次（销售回流录入页"选批次"用），顺序与回流不指定批次时的 FIFO 自动挑选一致。
+     * {@code includeSoldOut=true}（退货用）时在后面追加最近的已售罄批次。只读。
      */
     @GetMapping("/in-stock")
     public ApiResult<List<InStockBatchRow>> inStock(
             @RequestParam Long itemId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate) {
-        return ApiResult.ok(batchService.inStock(itemId, bizDate));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
+            @RequestParam(defaultValue = "false") boolean includeSoldOut) {
+        return ApiResult.ok(batchService.inStock(itemId, bizDate, includeSoldOut));
     }
 
     /**
