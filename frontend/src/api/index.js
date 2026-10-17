@@ -75,6 +75,10 @@ export const api = {
   // 2~3 批次与临期
   createBatch: (payload) => http.post('/batches', payload),
   nearExpiry: (params) => http.get('/batches/near-expiry', { params }),
+  // 临期清单里"有风险"的行（预计可售天数 > 剩余天数），首页待办入口用
+  atRisk: (params) => http.get('/batches/at-risk', { params }),
+  // 某单品有库存的在售批次，顺序与销售回流不指定批次时的自动挑选（最早到期）一致
+  inStock: (params) => http.get('/batches/in-stock', { params }),
   /**
    * 顾客端特价品列表（H5 用）。
    * 契约：只返回"店主已确认价格"的批次（存在 pricing_decision），
@@ -99,6 +103,12 @@ export const api = {
   // 9~10 推送
   previewPush: (payload) => http.post('/push/preview', payload),
   sendPush: (payload) => http.post('/push/send', payload),
+  // 推送计划/历史与效果（只读）：传 taskId 时带逐条发送记录
+  pushTasks: (params) => http.get('/push/tasks', { params }),
+  pushStats: (params) => http.get('/push/stats', { params }),
+  // 标记某条送达推送"已打开"（幂等）；按区间重新做推送归因（幂等）
+  markPushOpened: (payload) => http.post('/push/open', payload),
+  attributePush: (payload) => http.post('/push/attribute', payload),
 
   // 11~12 效果与回流
   effect: (params) => http.get('/sales/effect', { params }),

@@ -5,6 +5,7 @@ import com.fruit.shop.batch.domain.BatchMetrics;
 import com.fruit.shop.batch.domain.FruitBatch;
 import com.fruit.shop.batch.dto.BatchCreateRequest;
 import com.fruit.shop.batch.dto.BatchCreateResponse;
+import com.fruit.shop.batch.dto.InStockBatchRow;
 import com.fruit.shop.batch.dto.NearExpiryRow;
 import com.fruit.shop.batch.mapper.FruitBatchMapper;
 import com.fruit.shop.config.AppProperties;
@@ -179,6 +180,33 @@ public class BatchService {
                 .thenComparing(FruitBatch::getExpireDate)
                 .thenComparing(b -> b.getBatchNo() == null ? "" : b.getBatchNo()));
         return filtered;
+    }
+
+    /**
+     * 某单品有库存的在售批次，按销售回流 FIFO 的顺序（到期日、再按 id）排列。只读。
+     */
+    public List<InStockBatchRow> inStock(Long itemId, LocalDate bizDate) {
+        if (itemId == null) {
+            throw BusinessException.badRequest("itemId 不能为空");
+        }
+        FruitItem item = itemMapper.selectById(itemId);
+        if (item == null) {
+            throw BusinessException.notFound("单品不存在：itemId=" + itemId);
+        }
+        LocalDate biz = bizDate == null ? LocalDate.now() : bizDate;
+        List<FruitBatch> batches = batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()
+                .eq(FruitBatch::getItemId, itemId)
+                .eq(FruitBatch::getStatus, STATUS_ON_SALE)
+                .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
+                .orderByAsc(FruitBatch::getExpireDate)
+                .orderByAsc(FruitBatch::getId));
+        List<InStockBatchRow> rows = new ArrayList<>(batches.size());
+        for (FruitBatch batch : batches) {
+            rows.add(new InStockBatchRow(batch.getId(), batch.getBatchNo(), item.getId(), item.getItemName(),
+                    item.getUnit(), batch.getArriveDate(), batch.getExpireDate(),
+                    daysLeft(biz, batch.getExpireDate()), batch.getRemainQty(), item.getBasePrice()));
+        }
+        return rows;
     }
 
     public FruitBatch requireBatch(Long batchId) {

@@ -12,6 +12,7 @@ import NearExpiryView from '../views/NearExpiryView.vue'
 import PricingView from '../views/PricingView.vue'
 import TrafficView from '../views/TrafficView.vue'
 import PushView from '../views/PushView.vue'
+import SalesFeedbackView from '../views/SalesFeedbackView.vue'
 import H5SpecialsView from '../views/H5SpecialsView.vue'
 
 const routes = [
@@ -20,6 +21,7 @@ const routes = [
   { path: '/pricing', name: 'pricing', component: PricingView },
   { path: '/traffic', name: 'traffic', component: TrafficView },
   { path: '/push', name: 'push', component: PushView },
+  { path: '/sales', name: 'sales', component: SalesFeedbackView },
   // 顾客端 H5 特价页：同一套构建产物、独立手机版式（演示与截图都走这条路由）
   { path: '/h5', name: 'h5Specials', component: H5SpecialsView, meta: { standalone: true } }
 ]

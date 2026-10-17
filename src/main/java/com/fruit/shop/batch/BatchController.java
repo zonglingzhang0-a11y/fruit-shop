@@ -2,6 +2,7 @@ package com.fruit.shop.batch;
 
 import com.fruit.shop.batch.dto.BatchCreateRequest;
 import com.fruit.shop.batch.dto.BatchCreateResponse;
+import com.fruit.shop.batch.dto.InStockBatchRow;
 import com.fruit.shop.batch.dto.NearExpiryRow;
 import com.fruit.shop.batch.dto.OnSaleRow;
 import com.fruit.shop.support.ApiResult;
@@ -50,6 +51,16 @@ public class BatchController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
             @RequestParam(required = false) Integer days) {
         return ApiResult.ok(batchService.atRiskList(bizDate, days));
+    }
+
+    /**
+     * 3d. 某单品有库存的在售批次（销售回流录入页"选批次"用），顺序与回流不指定批次时的 FIFO 自动挑选一致。只读。
+     */
+    @GetMapping("/in-stock")
+    public ApiResult<List<InStockBatchRow>> inStock(
+            @RequestParam Long itemId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate) {
+        return ApiResult.ok(batchService.inStock(itemId, bizDate));
     }
 
     /**

@@ -430,15 +430,25 @@ public class SalesService {
             BigDecimal gScrap = BigDecimal.ZERO;
             BigDecimal gRevenue = BigDecimal.ZERO;
             BigDecimal gCost = BigDecimal.ZERO;
+            BigDecimal gStockoutSum = BigDecimal.ZERO;
+            int gStockoutCount = 0;
             for (StrategyDailyStat row : entry.getValue()) {
                 gSold = gSold.add(nz(row.getSoldQty()));
                 gScrap = gScrap.add(nz(row.getScrapQty()));
                 gRevenue = gRevenue.add(nz(row.getRevenue()));
                 gCost = gCost.add(nz(row.getCost()));
+                if (row.getStockoutRate() != null) {
+                    gStockoutSum = gStockoutSum.add(row.getStockoutRate());
+                    gStockoutCount++;
+                }
             }
+            // 缺货率按该策略自己的日统计平均（之前误用了全部策略的总平均，看板上三个策略的缺货率永远一样）
+            BigDecimal gStockout = gStockoutCount == 0
+                    ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP)
+                    : gStockoutSum.divide(BigDecimal.valueOf(gStockoutCount), 4, RoundingMode.HALF_UP);
             summaries.add(new StrategySummary(entry.getKey(), scale2(gSold), scale2(gScrap), scale2(gRevenue),
                     scale2(gCost), scale2(gRevenue.subtract(gCost)), StrategyStatService.scrapRate(gScrap, gSold),
-                    stockoutRate, entry.getValue().size()));
+                    gStockout, entry.getValue().size()));
         }
 
         String note = "数据来源：strategy_daily_stat（按 strategy 聚合，日统计唯一索引保证不重不漏）。"
@@ -550,6 +560,8 @@ public class SalesService {
                 .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
                 .notIn(!excludedIds.isEmpty(), FruitBatch::getId, excludedIds)
                 .orderByAsc(FruitBatch::getExpireDate)
+                // 同一天到期的多个批次：按 id 定序，自动挑选结果可复现，且与 GET /api/batches/in-stock 的第一行一致
+                .orderByAsc(FruitBatch::getId)
                 .last("LIMIT 1"));
     }
 

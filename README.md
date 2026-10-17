@@ -81,8 +81,8 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 | --- | --- | --- |
 | 后端测试 | `.\scripts\mvn.ps1 -B clean test` | **150 个用例全绿**（含接口契约锁、NFR-03 无自动执行、定时任务白名单；H2 与 MySQL profile 各跑一遍） |
 | 种子数据自洽 | `python scripts/verify_seed_data.py` | **全部检查通过**（台账不一致 0/2083；营业时段形状 Spearman r=0.996） |
-| 接口端到端 | `powershell -File scripts/smoke.ps1` | **13 个接口全绿**（临期 21 条、建议 6 折并附理由、高峰 10 点→推送 9 点） |
-| 浏览器端到端 | `powershell -File scripts/e2e-browser.ps1` | **6 个页面全部渲染正常**（含顾客端 H5），无控制台报错、无失败请求 |
+| 接口端到端 | `powershell -File scripts/smoke.ps1` | **21 次接口调用全绿**（临期 21 条、建议 6 折并附理由、高峰 10 点→推送 9 点） |
+| 浏览器端到端 | `powershell -File scripts/e2e-browser.ps1` | **7 个页面全部渲染正常**（工作台 6 个 + 顾客端 H5），无控制台报错、无失败请求 |
 | 弹性敏感性 | `python scripts/sensitivity_elasticity.py --seeds 6` | 三档 × 6 种子：**MODEL 对 RULE 全部 6/6 胜**，见 `release/sensitivity-elasticity.md` |
 | 三策略评测 | `python scripts/evaluate_strategies.py --seeds 20` | 20 种子 × 30 天测试期，报告 + 7 张图（`release/evaluation-report.md`） |
 
