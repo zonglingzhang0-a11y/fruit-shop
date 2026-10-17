@@ -1,5 +1,6 @@
 package com.fruit.shop.pricing;
 
+import com.fruit.shop.config.AppProperties;
 import com.fruit.shop.pricing.dto.ModelInputResponse;
 import com.fruit.shop.support.BusinessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,9 +28,11 @@ public class ModelInputService {
     public static final int DEFAULT_HISTORY_DAYS = 60;
 
     private final JdbcTemplate jdbc;
+    private final AppProperties props;
 
-    public ModelInputService(JdbcTemplate jdbc) {
+    public ModelInputService(JdbcTemplate jdbc, AppProperties props) {
         this.jdbc = jdbc;
+        this.props = props;
     }
 
     public ModelInputResponse snapshot(LocalDate bizDate, Integer historyDays) {
@@ -80,7 +83,8 @@ public class ModelInputService {
                         scale2(rs.getBigDecimal("qty")), scale2(rs.getBigDecimal("revenue"))),
                 Date.valueOf(salesFrom), Date.valueOf(bizDate));
 
-        return new ModelInputResponse(bizDate, from, bizDate.minusDays(1), days, salesFrom, items, batches, sales,
+        return new ModelInputResponse(bizDate, from, bizDate.minusDays(1), days, salesFrom,
+                props.minDiscountRate(), items, batches, sales,
                 "训练窗口 [" + from + ", " + bizDate + ")；销量从 " + salesFrom
                         + " 起给（用于重建期初库存），不含 bizDate 当天及以后的成交");
     }

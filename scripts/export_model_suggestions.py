@@ -282,11 +282,10 @@ def build_artifact(snap: dict, min_discount_rate: float, generated_at: Optional[
             raw = unconstrained.decide_item(code, rows, dow)
             raw_rate = float(snap_to_grid(raw.discount_rate, DISCOUNT_GRID)) if raw is not None else rate
             floor_hit = raw_rate < rate - 1e-9 and raw_rate < min_discount_rate - 1e-9
+            # 触底的说明由后端按 rawDiscountRate 统一写（与其它策略同一句话），这里不重复，免得理由超长被截断
             reason = dec.reason
             if floor_hit:
                 floor_hits += 1
-                reason += (f"；不受最低折扣线约束时模型会选{raw_rate * 10:.0f}折，"
-                           f"已在底线 {min_discount_rate:.2f} 以内的档位里重新决策")
             total = sum(r["remain_qty"] for r in rows) or 1.0
             for r in rows:
                 row = {
@@ -439,7 +438,7 @@ def _selftest() -> int:
         assert s["discountRate"] in DISCOUNT_GRID and s["discountRate"] >= DEFAULT_MIN_DISCOUNT - 1e-9, s
         assert s["batchId"] is not None and s["itemId"] is not None and s["reason"], s
         if "rawDiscountRate" in s:
-            assert s["rawDiscountRate"] < DEFAULT_MIN_DISCOUNT and "底线" in s["reason"], s
+            assert s["rawDiscountRate"] < DEFAULT_MIN_DISCOUNT < s["discountRate"] + 1e-9, s
     strict = build_artifact(snap, min_discount_rate=0.9, generated_at="2026-10-15T00:00:00")
     assert all(s["discountRate"] >= 0.9 - 1e-9 for s in strict["suggestions"]), "底线 0.9 时出现了更深的折扣"
     for s in strict["suggestions"]:
@@ -455,7 +454,17 @@ def _selftest() -> int:
     new_art = build_artifact(with_new, min_discount_rate=DEFAULT_MIN_DISCOUNT)
     assert all(s["itemCode"] != "C" for s in new_art["suggestions"]) and "C" in new_art["modelNote"], new_art["modelNote"]
 
-    # 5) 训练样本不足：模型不可用 → 不给建议、状态如实
+    # 5) 底线以后端为准：接口模式默认用后端给的底线；显式参数与后端不一致直接报错，不导出对不上的产物
+    assert resolve_floor(None, {"minDiscountRate": 0.7}) == 0.7
+    assert resolve_floor(None, {}) == DEFAULT_MIN_DISCOUNT
+    assert resolve_floor(0.6, {"minDiscountRate": 0.60}) == 0.6
+    try:
+        resolve_floor(0.6, {"minDiscountRate": 0.7})
+        raise AssertionError("显式底线与后端不一致时应报错")
+    except SystemExit:
+        pass
+
+    # 6) 训练样本不足：模型不可用 → 不给建议、状态如实
     thin_art = build_artifact(_synthetic_snapshot(biz, days=3), min_discount_rate=DEFAULT_MIN_DISCOUNT)
     assert thin_art["modelStatus"] != "ok" and not thin_art["suggestions"], thin_art["modelNote"]
     json.dumps(art, ensure_ascii=False, default=_jsonable)  # 能序列化
@@ -464,14 +473,27 @@ def _selftest() -> int:
     return 0
 
 
+def resolve_floor(cli_floor: Optional[float], snap: dict) -> float:
+    """最低折扣线：后端快照里给了就以后端为准（产物底线与后端配置不一致时，后端会整份不用）。"""
+    backend = snap.get("minDiscountRate")
+    if backend is None:
+        return DEFAULT_MIN_DISCOUNT if cli_floor is None else cli_floor
+    backend = float(backend)
+    if cli_floor is not None and abs(cli_floor - backend) > 1e-9:
+        raise SystemExit(f"--min-discount-rate {cli_floor} 与后端当前配置 app.pricing.min-discount-rate={backend} "
+                         "不一致：这样导出的产物后端不会采用。去掉该参数（自动用后端的）或改成一致的值")
+    return backend
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="导出在线模型定价产物（pricing_model.json）")
     ap.add_argument("--biz-date", help="要做定价决策的业务日 yyyy-MM-dd（与后端生成建议的业务日一致）")
     ap.add_argument("--api", default=DEFAULT_API, help=f"后端地址，默认 {DEFAULT_API}")
     ap.add_argument("--seed-dir", help="不连后端，改读该目录下的种子 CSV（如 data/seed）")
     ap.add_argument("--history-days", type=int, default=DEFAULT_HISTORY_DAYS, help="训练窗口天数，默认 60")
-    ap.add_argument("--min-discount-rate", type=float, default=DEFAULT_MIN_DISCOUNT,
-                    help="最低折扣线，与 app.pricing.min-discount-rate 保持一致，默认 0.60")
+    ap.add_argument("--min-discount-rate", type=float, default=None,
+                    help="最低折扣线。接口模式默认用后端的 app.pricing.min-discount-rate；"
+                         "种子模式默认 0.60（后端改过底线时要传一致的值，否则后端不用该产物）")
     ap.add_argument("--out", default=DEFAULT_OUT, help=f"产物路径（后端 app.pricing.model-file），默认 {DEFAULT_OUT}")
     ap.add_argument("--selftest", action="store_true", help="自检（不依赖数据文件与后端）")
     args = ap.parse_args(argv)
@@ -483,7 +505,7 @@ def main(argv=None) -> int:
     biz = _dt.date.fromisoformat(args.biz_date)
     snap = (load_from_seed(args.seed_dir, biz, args.history_days) if args.seed_dir
             else load_from_api(args.api, biz, args.history_days))
-    art = build_artifact(snap, args.min_discount_rate)
+    art = build_artifact(snap, resolve_floor(args.min_discount_rate, snap))
     write_atomic(args.out, art)
     print(f"[export] {art['bizDate']} 模型状态 {art['modelStatus']}，建议 {len(art['suggestions'])} 条 → {args.out}")
     print(f"[export] {art['modelNote']}")

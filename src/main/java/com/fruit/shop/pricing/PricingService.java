@@ -181,6 +181,9 @@ public class PricingService {
             if (adjustCount >= maxAdjust) {
                 String reason = adjustGuard.limitReason(batch.getBatchNo(), bizDate, maxAdjust);
                 limited.add(reason);
+                if (replacing) {
+                    keptFallbacks.merge("已达「同一批次每天最多调价 " + maxAdjust + " 次」的上限", 1, Integer::sum);
+                }
                 log.info("[pricing] 批次 {} 当天已调价 {} 次，达到上限，本次生成被拒绝", batch.getBatchNo(), adjustCount);
                 continue;
             }
@@ -360,6 +363,15 @@ public class PricingService {
         PricingSuggestion suggestion = suggestionMapper.selectById(request.getSuggestionId());
         if (suggestion == null) {
             throw BusinessException.notFound("定价建议不存在：suggestionId=" + request.getSuggestionId());
+        }
+        // 回退规则版的 MODEL 建议在模型可用后会被重新生成；旧页面上对旧建议的决策会被列表隐藏、却仍被推送取用
+        Long newer = suggestionMapper.selectCount(Wrappers.<PricingSuggestion>lambdaQuery()
+                .eq(PricingSuggestion::getBizDate, suggestion.getBizDate())
+                .eq(PricingSuggestion::getStrategy, suggestion.getStrategy())
+                .eq(PricingSuggestion::getBatchId, suggestion.getBatchId())
+                .gt(PricingSuggestion::getId, suggestion.getId()));
+        if (newer != null && newer > 0) {
+            throw BusinessException.conflict("该建议已被重新生成（模型产物可用后替换了回退规则版的建议），请刷新页面后对最新建议决策");
         }
         BigDecimal suggestedPrice = PricingPolicy.round2(suggestion.getSuggestedPrice());
         BigDecimal finalPrice = request.getFinalPrice() == null

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import { defaultBizDate } from '../utils/bizDate'
+import { notifyGenerateResult } from '../utils/generateResult'
 
 const loading = ref(false)
 const rows = ref([])
@@ -57,13 +58,13 @@ async function load() {
 }
 
 async function generate() {
-  const res = await api.generateSuggestions({ bizDate: bizDate.value, strategy: strategy.value })
-  if (res?.strategyNote) {
-    // 例如请求 MODEL 但部分批次回退了规则版：如实提示，不当成"模型定价成功"
-    ElMessage.warning({ message: res.strategyNote, duration: 6000 })
-  } else {
-    ElMessage.success('建议已生成')
+  if (!bizDate.value) {
+    ElMessage.warning('请先选择营业日')
+    return
   }
+  const res = await api.generateSuggestions({ bizDate: bizDate.value, strategy: strategy.value })
+  // 例如请求 MODEL 但部分批次回退了规则版、或被每日调价上限拦住：如实提示，不当成"生成成功"
+  notifyGenerateResult(res)
   // 产物可能在打开页面之后才重新导出：生成完顺手刷新模型状态提示，和刚生成的建议对得上
   await Promise.all([load(), loadModelStatus()])
 }
@@ -127,7 +128,8 @@ onMounted(() => {
     <el-card shadow="never">
       <div class="toolbar">
         <span>营业日</span>
-        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" style="width: 150px" />
+        <!-- 不允许清空：清空后模型状态按"不看日期"报可用，生成却按今天算，两边对不上 -->
+        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" :clearable="false" style="width: 150px" />
         <span>策略</span>
         <el-select v-model="strategy" style="width: 190px" @change="load">
           <el-option label="规则折扣（基线）" value="RULE" />

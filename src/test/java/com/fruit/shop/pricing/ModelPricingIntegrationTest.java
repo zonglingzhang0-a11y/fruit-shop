@@ -15,6 +15,7 @@ import com.fruit.shop.sales.SalesService;
 import com.fruit.shop.sales.domain.SalesRecord;
 import com.fruit.shop.sales.dto.SalesFeedbackRequest;
 import com.fruit.shop.sales.mapper.SalesRecordMapper;
+import com.fruit.shop.support.BusinessException;
 import com.fruit.shop.support.ShopFixtures;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 在线 MODEL 接入（Issue #2）：产物可用时真的用模型；缺失/过期/模型不可用/没覆盖该批次时如实回退并记为 RULE；
@@ -190,6 +192,7 @@ class ModelPricingIntegrationTest {
 
         assertThat(snap.historyFrom()).isEqualTo(bizDate.minusDays(7));
         assertThat(snap.historyTo()).isEqualTo(bizDate.minusDays(1));
+        assertThat(snap.minDiscountRate()).as("导出脚本按后端的底线决策").isEqualByComparingTo(props.minDiscountRate());
         assertThat(snap.salesFrom()).isBeforeOrEqualTo(bizDate.minusDays(9));
         assertThat(snap.batches()).anySatisfy(b -> assertThat(b.batchId()).isEqualTo(early.getId()));
         List<ModelInputResponse.DailySale> mine = snap.sales().stream()
@@ -261,7 +264,7 @@ class ModelPricingIntegrationTest {
 
         Path usable = artifact(bizDate, "ok", batch.getId(), "0.8");
         SuggestionGenerateResponse res = withModelFile(usable, () -> pricingService.generate(request(bizDate)));
-        assertThat(res.strategyNote()).contains("重新生成");
+        assertThat(res.strategyNote()).contains("已用模型重新生成");
         List<SuggestionView> mine = pricingService.query(bizDate, "MODEL").stream()
                 .filter(v -> batch.getId().equals(v.batchId())).toList();
         assertThat(mine).singleElement().satisfies(v -> {
@@ -321,6 +324,81 @@ class ModelPricingIntegrationTest {
     }
 
     @Test
+    @DisplayName("按 batchId 命中但批次号/单品对不上（id 被重新分配）：不用这行，回退规则版")
+    void batchIdHitWithDifferentBatchNoIsIgnored() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 27);
+        FruitBatch batch = nearExpiryBatch(bizDate, "id复用桃");
+        Path artifact = artifactWithRow(bizDate, "ok", """
+                {"batchId": %d, "batchNo": "OTHER-BATCH", "itemCode": "OTHER-ITEM", "discountRate": 0.7,
+                 "expectedQty": 77, "reason": "别的批次的建议"}
+                """.formatted(batch.getId()));
+
+        SuggestionView view = withModelFile(artifact, () -> generateMine(bizDate, batch));
+
+        assertThat(view.effectiveStrategy()).isEqualTo("RULE");
+        assertThat(view.reason()).doesNotContain("别的批次的建议");
+    }
+
+    @Test
+    @DisplayName("产物的最低折扣线与后端配置不一致、或没写底线：整份不用，回退规则版并说明怎么重新导出")
+    void floorMismatchMakesArtifactUnusable() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 28);
+        FruitBatch batch = nearExpiryBatch(bizDate, "底线不一致桃");
+        String row = """
+                {"batchId": %d, "discountRate": 0.8, "expectedQty": 3, "reason": "测试"}
+                """.formatted(batch.getId());
+
+        Path mismatch = artifactWithFloor(bizDate, "ok", "\"minDiscountRate\": 0.5,", row);
+        ModelPricingStrategy.ModelStatus status = withModelFile(mismatch, () -> modelStrategy.status(bizDate));
+        assertThat(status.usable()).isFalse();
+        assertThat(status.message()).contains("0.5").contains("--min-discount-rate 0.6");
+        SuggestionView view = withModelFile(mismatch, () -> generateMine(bizDate, batch));
+        assertThat(view.effectiveStrategy()).isEqualTo("RULE");
+
+        Path noFloor = artifactWithFloor(bizDate, "ok", "", row);
+        assertThat(withModelFile(noFloor, () -> modelStrategy.status(bizDate)).message()).contains("没有写最低折扣线");
+    }
+
+    @Test
+    @DisplayName("回退的建议想用模型重做但已到每日调价上限：响应里说明是上限拦住的，而不是什么都不说")
+    void regenerationBlockedByAdjustLimitIsExplained() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 29);
+        FruitBatch batch = nearExpiryBatch(bizDate, "上限拦住桃");
+        SuggestionGenerateRequest rule = new SuggestionGenerateRequest();
+        rule.setBizDate(bizDate);
+        rule.setStrategy("RULE");
+        pricingService.generate(rule);                                           // 第 1 次调价
+        withModelFile(artifact(bizDate.minusDays(1), "ok", batch.getId(), "0.8"),
+                () -> generateMine(bizDate, batch));                               // 第 2 次：回退规则版
+
+        SuggestionGenerateResponse res = withModelFile(artifact(bizDate, "ok", batch.getId(), "0.8"),
+                () -> pricingService.generate(request(bizDate)));
+
+        assertThat(res.skippedByAdjustLimit()).isPositive();
+        assertThat(res.strategyNote()).contains("本次未重新生成").contains("上限");
+    }
+
+    @Test
+    @DisplayName("回退的建议已被模型重做：再对旧建议做决策返回 409，避免旧页面上的决策被列表隐藏却被推送取用")
+    void decidingSupersededSuggestionIsRejected() throws Exception {
+        LocalDate bizDate = LocalDate.of(2034, 4, 30);
+        FruitBatch batch = nearExpiryBatch(bizDate, "旧建议决策桃");
+        SuggestionView old = withModelFile(artifact(bizDate.minusDays(1), "ok", batch.getId(), "0.8"),
+                () -> generateMine(bizDate, batch));
+        withModelFile(artifact(bizDate, "ok", batch.getId(), "0.8"), () -> pricingService.generate(request(bizDate)));
+
+        DecisionRequest decision = new DecisionRequest();
+        decision.setSuggestionId(old.id());
+        decision.setFinalPrice(old.suggestedPrice());
+        decision.setAccepted(true);
+
+        assertThatThrownBy(() -> pricingService.decide(decision))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("已被重新生成")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode()).isEqualTo(409));
+    }
+
+    @Test
     @DisplayName("模型输入快照：没关联批次的散卖记录，batchId 原样为 null（不能读成 0）")
     void unbatchedSaleHasNullBatchId() {
         LocalDate bizDate = LocalDate.of(2034, 5, 25);
@@ -343,18 +421,24 @@ class ModelPricingIntegrationTest {
 
     private Path artifact(LocalDate bizDate, String modelStatus, Long batchId, String rate) throws Exception {
         return artifactWithRow(bizDate, modelStatus, """
-                {"batchId": %d, "itemCode": "NOPE", "discountRate": %s, "expectedQty": 3.5, "reason": "测试模型理由"}
+                {"batchId": %d, "discountRate": %s, "expectedQty": 3.5, "reason": "测试模型理由"}
                 """.formatted(batchId, rate));
     }
 
     private Path artifactWithRow(LocalDate bizDate, String modelStatus, String rowJson) throws Exception {
+        return artifactWithFloor(bizDate, modelStatus, "\"minDiscountRate\": 0.60,", rowJson);
+    }
+
+    /** floorField 是产物顶层的底线字段（含结尾逗号），传空串表示产物没写底线。 */
+    private Path artifactWithFloor(LocalDate bizDate, String modelStatus, String floorField, String rowJson)
+            throws Exception {
         Path file = Files.createTempFile(tempDir, "model-" + bizDate + "-" + modelStatus + "-", ".json");
         Files.writeString(file, """
                 {"schemaVersion": 1, "bizDate": "%s", "generatedAt": "2034-01-01T09:00:00",
                  "modelVersion": "pricing_model.py@test", "modelStatus": "%s", "modelNote": "测试产物",
-                 "inputSource": "test",
+                 "inputSource": "test", %s
                  "suggestions": [%s]}
-                """.formatted(bizDate, modelStatus, rowJson));
+                """.formatted(bizDate, modelStatus, floorField, rowJson));
         return file;
     }
 

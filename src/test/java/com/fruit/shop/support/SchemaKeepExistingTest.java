@@ -107,6 +107,34 @@ class SchemaKeepExistingTest {
         }
     }
 
+    @Test
+    // 注意：H2 的 ALTER ANY SCHEMA 同时带了改数据的权限，分不出回填用的是哪个账号；
+    // "DDL 账号没有 UPDATE 权限也能启动"在 MariaDB 上用真实授权验证过（见 Issue #2 记录）
+    @DisplayName("配了单独的 DDL 账号：保留旧库启动时补列、回填旧建议都能完成")
+    void backfillUsesApplicationAccountNotDdlAccount() throws Exception {
+        String url = "jdbc:h2:file:" + tempDir.resolve("backfill-creds").toAbsolutePath()
+                + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
+        try (ConfigurableApplicationContext old = start(url, true)) {
+            jdbc(old).execute("ALTER TABLE pricing_suggestion DROP COLUMN effective_strategy");
+            insertLegacySuggestion(old, 1, "MODEL", "模型产物缺失，已回退规则版：剩 1 天");
+        }
+        // 单独的 DDL 账号（spring.sql.init.username/password）
+        try (Connection c = DriverManager.getConnection(url, "sa", ""); Statement st = c.createStatement()) {
+            st.execute("CREATE USER ddl PASSWORD 'ddl'");
+            st.execute("GRANT ALTER ANY SCHEMA TO ddl");
+            st.execute("GRANT SELECT, INSERT ON SCHEMA PUBLIC TO ddl");
+        }
+        try (ConfigurableApplicationContext migrated = new SpringApplicationBuilder(FruitShopApplication.class).run(
+                "--server.port=0", "--spring.datasource.url=" + url, H2_DRIVER, H2_USER, H2_PASSWORD, H2_SCHEMA,
+                "--spring.sql.init.username=ddl", "--spring.sql.init.password=ddl",
+                "--app.db.keep-existing=true", "--app.seed.enabled=false", "--app.scan.enabled=false",
+                "--spring.h2.console.enabled=false")) {
+            assertThat(columnExists(migrated, "pricing_suggestion", "effective_strategy")).as("DDL 账号补了列").isTrue();
+            assertThat(jdbc(migrated).queryForList("SELECT effective_strategy FROM pricing_suggestion", String.class))
+                    .as("应用账号回填了旧数据").containsExactly("RULE");
+        }
+    }
+
     private static void insertLegacySuggestion(ConfigurableApplicationContext context, long batchId, String strategy,
                                                String reason) {
         jdbc(context).update("INSERT INTO pricing_suggestion (biz_date, item_id, batch_id, days_left, remain_qty,"

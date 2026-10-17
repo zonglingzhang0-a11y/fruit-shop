@@ -183,15 +183,35 @@ public class ModelPricingStrategy implements PricingStrategy {
             return "模型产物标记模型不可用（modelStatus=" + artifact.modelStatus()
                     + (artifact.modelNote() == null ? "" : "：" + artifact.modelNote()) + "）";
         }
+        // 模型在导出时就按底线联合决策（同一单品各批次共用货架价，底线不能事后再钳）：底线不一致的产物，
+        // 价格、理由、期望销量和底线留痕都对不上当前配置，整份不用
+        BigDecimal floor = props.minDiscountRate();
+        if (artifact.minDiscountRate() == null) {
+            return "模型产物没有写最低折扣线（minDiscountRate），无法确认与当前配置 " + floor.toPlainString()
+                    + " 一致，请重新导出";
+        }
+        if (artifact.minDiscountRate().compareTo(floor) != 0) {
+            return "模型产物按最低折扣线 " + artifact.minDiscountRate().stripTrailingZeros().toPlainString()
+                    + " 导出，与当前配置 app.pricing.min-discount-rate=" + floor.stripTrailingZeros().toPlainString()
+                    + " 不一致，请加 --min-discount-rate " + floor.stripTrailingZeros().toPlainString() + " 重新导出";
+        }
         return null;
     }
 
     private ModelRow lookup(Artifact artifact, PricingContext context) {
         Map<String, ModelRow> rows = artifact.rows();
+        // id 可能被重新分配（内存库重启重新导种子、keep-existing=false 重建）：按 id 命中后还要核对批次号和单品，
+        // 对不上就当没命中，免得拿别的商品的模型建议给这个批次定价
         if (context.batch() != null) {
             ModelRow row = rows.get("batch:" + context.batch().getId());
+            if (row != null && !sameBatch(row, context)) {
+                row = null;
+            }
             if (row == null && context.batch().getBatchNo() != null) {
                 row = rows.get("batchNo:" + context.batch().getBatchNo());
+                if (row != null && !sameItem(row, context)) {
+                    row = null;
+                }
             }
             if (row != null) {
                 return row;
@@ -199,15 +219,33 @@ public class ModelPricingStrategy implements PricingStrategy {
         }
         if (context.item() != null) {
             ModelRow row = rows.get("item:" + context.item().getId());
+            if (row != null && !sameItem(row, context)) {
+                row = null;
+            }
             if (row == null && context.item().getItemCode() != null) {
                 row = rows.get("code:" + context.item().getItemCode());
             }
             if (row != null) {
                 // 单品级匹配：折扣是该单品的货架价，期望销量却是某个别的批次的分摊值，不能照搬
-                return new ModelRow(row.discountRate(), row.expectedQty(), row.reason(), row.rawDiscountRate(), false);
+                return row.itemLevel();
             }
         }
         return null;
+    }
+
+    /** 产物行写了批次号就必须与本批次一致，写了单品就必须是同一个单品。 */
+    private static boolean sameBatch(ModelRow row, PricingContext context) {
+        return (row.batchNo() == null || row.batchNo().equals(context.batch().getBatchNo())) && sameItem(row, context);
+    }
+
+    private static boolean sameItem(ModelRow row, PricingContext context) {
+        if (context.item() == null) {
+            return true;
+        }
+        if (row.itemCode() != null) {
+            return row.itemCode().equals(context.item().getItemCode());
+        }
+        return row.itemId() == null || row.itemId().equals(context.item().getId());
     }
 
     /** 按 路径 + mtime 缓存：同一版本的文件只读一次、解析失败也只告警一次（生成一天的建议会对每个批次调用）。 */
@@ -236,7 +274,7 @@ public class ModelPricingStrategy implements PricingStrategy {
         } catch (IOException | RuntimeException e) {
             log.warn("[model] 读取/解析模型产物失败（{}）：{}", pathText, e.getMessage());
             fresh = new Artifact(pathText, modified, true, e.getClass().getSimpleName() + ": " + e.getMessage(),
-                    null, null, null, null, null, null, Map.of(), 0);
+                    null, null, null, null, null, null, null, Map.of(), 0);
         }
         cache = fresh;
         return fresh;
@@ -245,7 +283,7 @@ public class ModelPricingStrategy implements PricingStrategy {
     private Artifact parse(String path, long modified, JsonNode root) {
         if (root == null || !root.isObject()) {
             return new Artifact(path, modified, true, "顶层必须是 JSON 对象（含 bizDate、suggestions 等字段）",
-                    null, null, null, null, null, null, Map.of(), 0);
+                    null, null, null, null, null, null, null, Map.of(), 0);
         }
         LocalDate bizDate = null;
         String bizText = text(root, "bizDate", "biz_date");
@@ -254,7 +292,7 @@ public class ModelPricingStrategy implements PricingStrategy {
                 bizDate = LocalDate.parse(bizText);
             } catch (DateTimeParseException e) {
                 return new Artifact(path, modified, true, "bizDate 不是 yyyy-MM-dd：" + bizText,
-                        null, null, null, null, null, null, Map.of(), 0);
+                        null, null, null, null, null, null, null, Map.of(), 0);
             }
         }
         Map<String, ModelRow> rows = new LinkedHashMap<>();
@@ -267,12 +305,13 @@ public class ModelPricingStrategy implements PricingStrategy {
                     continue;
                 }
                 count++;
-                ModelRow row = new ModelRow(discount, decimal(node, "expectedQty", "expected_qty"),
-                        text(node, "reason"), decimal(node, "rawDiscountRate", "raw_discount_rate"), true);
                 Long batchId = longValue(node, "batchId", "batch_id");
                 String batchNo = text(node, "batchNo", "batch_no");
                 Long itemId = longValue(node, "itemId", "item_id");
                 String itemCode = text(node, "itemCode", "item_code");
+                ModelRow row = new ModelRow(discount, decimal(node, "expectedQty", "expected_qty"),
+                        text(node, "reason"), decimal(node, "rawDiscountRate", "raw_discount_rate"), true,
+                        batchNo, itemId, itemCode);
                 if (batchId != null) {
                     rows.putIfAbsent("batch:" + batchId, row);
                 }
@@ -293,6 +332,7 @@ public class ModelPricingStrategy implements PricingStrategy {
                 text(root, "modelStatus", "model_status"),
                 text(root, "modelNote", "model_note"),
                 text(root, "inputSource", "input_source"),
+                decimal(root, "minDiscountRate", "min_discount_rate"),
                 rows, count);
     }
 
@@ -343,21 +383,29 @@ public class ModelPricingStrategy implements PricingStrategy {
     /** 模型产物的缓存壳：path + mtime + 元数据 + 解析结果。 */
     private record Artifact(String path, long lastModified, boolean present, String error, LocalDate bizDate,
                             String generatedAt, String modelVersion, String modelStatus, String modelNote,
-                            String inputSource, Map<String, ModelRow> rows, int rowCount) {
+                            String inputSource, BigDecimal minDiscountRate, Map<String, ModelRow> rows,
+                            int rowCount) {
         private Artifact {
             rows = new HashMap<>(rows);
         }
 
         static Artifact missing(String path) {
-            return new Artifact(path, -1L, false, null, null, null, null, null, null, null, Map.of(), 0);
+            return new Artifact(path, -1L, false, null, null, null, null, null, null, null, null, Map.of(), 0);
         }
     }
 
     /**
      * @param rawDiscountRate 不受最低折扣线约束时模型会选的档位（触底时才有）
      * @param batchLevel      是否按批次（id / 批次号）匹配上；单品级匹配时 expectedQty 不适用于本批次
+     * @param batchNo         产物行的批次号 / 单品，用来核对按 id 命中的是不是同一个批次、同一个单品
      */
     private record ModelRow(BigDecimal discountRate, BigDecimal expectedQty, String reason,
-                            BigDecimal rawDiscountRate, boolean batchLevel) {
+                            BigDecimal rawDiscountRate, boolean batchLevel,
+                            String batchNo, Long itemId, String itemCode) {
+
+        /** 只按单品匹配上时用：折扣是该单品的货架价，期望销量却是某个别的批次的分摊值，不能照搬。 */
+        ModelRow itemLevel() {
+            return new ModelRow(discountRate, expectedQty, reason, rawDiscountRate, false, batchNo, itemId, itemCode);
+        }
     }
 }

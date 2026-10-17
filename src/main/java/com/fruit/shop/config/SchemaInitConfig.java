@@ -125,6 +125,8 @@ public class SchemaInitConfig {
                     log.info("[db] app.db.keep-existing=true 且库中已有完整表结构，跳过建表脚本、保留现有数据"
                             + "（如需重置演示数据，启动时加 --app.db.keep-existing=false）");
                     migrate(initDataSource);
+                    // 回填是改数据（UPDATE），用应用账号做：DDL 账号按文档只需要建表/改表权限
+                    backfill(dataSource);
                     return false;
                 }
                 if (keepExisting) {
@@ -166,7 +168,6 @@ public class SchemaInitConfig {
                     log.info("[db] 旧库补索引 {}.{}", m.table(), m.index());
                 }
             }
-            backfillEffectiveStrategy(st);
             if (mysql) {
                 fixMySqlRequestNoCollation(connection, st);
             }
@@ -176,9 +177,20 @@ public class SchemaInitConfig {
         }
     }
 
+    /** 旧数据回填（只改数据、不改表结构），走应用自己的连接池。 */
+    static void backfill(DataSource dataSource) {
+        try (Connection connection = dataSource.getConnection(); Statement st = connection.createStatement()) {
+            backfillEffectiveStrategy(st);
+        } catch (SQLException e) {
+            throw new IllegalStateException("回填旧建议的实际生效策略失败：" + e.getMessage(), e);
+        }
+    }
+
     /**
      * 补列之前生成的建议没有 effective_strategy：按理由文字回填（MODEL 回退过规则版的理由里一定写着"已回退规则版"），
-     * 让效果看板和建议列表对新旧数据用同一个口径。只动 NULL 行，可重复执行。
+     * 让建议列表和此后的销售归属对新旧数据用同一个口径。只动 NULL 行，可重复执行。
+     * <p>不重算 strategy_daily_stat：升级前已累加进看板的销售仍按当时记的策略统计（该表还含种子导入的报废、
+     * 缺货数据，无法从销售流水重建），这一点写在 docs/03 §3.8。
      */
     static void backfillEffectiveStrategy(Statement st) throws SQLException {
         int n = st.executeUpdate("UPDATE pricing_suggestion SET effective_strategy = CASE"

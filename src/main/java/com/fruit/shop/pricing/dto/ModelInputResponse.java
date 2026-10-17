@@ -12,6 +12,8 @@ import java.util.List;
  * @param historyTo   历史窗口终点（含，= bizDate 前一天）
  * @param historyDays 窗口天数
  * @param salesFrom   sales 的起点（含）：窗口起点与窗口内批次最早到货日中较早的那个，用于重建期初库存
+ * @param minDiscountRate 后端当前的最低折扣线（app.pricing.min-discount-rate）：导出脚本按它联合决策，
+ *                        产物里记下它，后端发现与当前配置不一致就不用该产物
  * @param items       单品档案（原价、成本价）
  * @param batches     窗口内可能在售过的批次台账（到货量、现存、到期日）
  * @param sales       窗口内按 业务日 × 批次 汇总的净销量与营收
@@ -23,6 +25,7 @@ public record ModelInputResponse(
         LocalDate historyTo,
         int historyDays,
         LocalDate salesFrom,
+        BigDecimal minDiscountRate,
         List<Item> items,
         List<Batch> batches,
         List<DailySale> sales,

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import { defaultBizDate } from '../utils/bizDate'
+import { notifyGenerateResult } from '../utils/generateResult'
 
 const loading = ref(false)
 const rows = ref([])
@@ -61,7 +62,7 @@ function freshnessType(v) {
 async function generate(strategy) {
   try {
     const res = await api.generateSuggestions({ bizDate: bizDate.value, strategy })
-    ElMessage.success(`已生成 ${res?.generated ?? ''} 条 ${strategy} 建议，请到「定价建议」页确认`)
+    notifyGenerateResult(res, strategy)
   } catch (e) {
     // 错误提示由拦截器统一处理
   }
@@ -81,7 +82,7 @@ onMounted(load)
     <el-card shadow="never">
       <div class="toolbar">
         <span>营业日</span>
-        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" style="width: 150px" />
+        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" :clearable="false" style="width: 150px" />
         <span>临期阈值（天）</span>
         <el-input-number v-model="days" :min="0" :max="10" />
         <el-button type="primary" :loading="loading" @click="load">查询</el-button>
