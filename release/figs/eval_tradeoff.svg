@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC',sans-serif">
+<rect width="1200" height="760" fill="#ffffff"/>
+<text x="96" y="44" font-size="28" font-weight="600" fill="#303133">同样的损耗率，模型定价比凭经验取舍平均多赚 4,141 元</text>
+<text x="96" y="76" font-size="16" fill="#606266">20 个随机种子 × 30 天测试期，每个小点是一个种子；越靠左损耗越低，越靠上毛利越高。20/20 个种子上模型定价都在灰线上方。</text>
+<line x1="96" x2="950" y1="668.0" y2="668.0" stroke="#ebeef5" stroke-width="1"/>
+<text x="86" y="673.0" font-size="14" fill="#909399" text-anchor="end">4万</text>
+<line x1="96" x2="950" y1="533.0" y2="533.0" stroke="#ebeef5" stroke-width="1"/>
+<text x="86" y="538.0" font-size="14" fill="#909399" text-anchor="end">5万</text>
+<line x1="96" x2="950" y1="398.0" y2="398.0" stroke="#ebeef5" stroke-width="1"/>
+<text x="86" y="403.0" font-size="14" fill="#909399" text-anchor="end">6万</text>
+<line x1="96" x2="950" y1="263.0" y2="263.0" stroke="#ebeef5" stroke-width="1"/>
+<text x="86" y="268.0" font-size="14" fill="#909399" text-anchor="end">7万</text>
+<line x1="96" x2="950" y1="128.0" y2="128.0" stroke="#ebeef5" stroke-width="1"/>
+<text x="86" y="133.0" font-size="14" fill="#909399" text-anchor="end">8万</text>
+<line x1="96.0" x2="96.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="96.0" y="692" font-size="14" fill="#909399" text-anchor="middle">2.5%</text>
+<line x1="218.0" x2="218.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="218.0" y="692" font-size="14" fill="#909399" text-anchor="middle">5%</text>
+<line x1="340.0" x2="340.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="340.0" y="692" font-size="14" fill="#909399" text-anchor="middle">7.5%</text>
+<line x1="462.0" x2="462.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="462.0" y="692" font-size="14" fill="#909399" text-anchor="middle">10%</text>
+<line x1="584.0" x2="584.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="584.0" y="692" font-size="14" fill="#909399" text-anchor="middle">12.5%</text>
+<line x1="706.0" x2="706.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="706.0" y="692" font-size="14" fill="#909399" text-anchor="middle">15%</text>
+<line x1="828.0" x2="828.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="828.0" y="692" font-size="14" fill="#909399" text-anchor="middle">17.5%</text>
+<line x1="950.0" x2="950.0" y1="128" y2="668" stroke="#ebeef5" stroke-width="1"/>
+<text x="950.0" y="692" font-size="14" fill="#909399" text-anchor="middle">20%</text>
+<text x="523.0" y="724" font-size="15" fill="#606266" text-anchor="middle">损耗率（报废 ÷ 进货）← 越低越好</text>
+<text transform="translate(28,398.0) rotate(-90)" font-size="15" fill="#606266" text-anchor="middle">经营毛利（元，已扣报废成本）↑ 越高越好</text>
+<line x1="636.8" y1="285.0" x2="217.3" y2="534.9" stroke="#b1b3b8" stroke-width="2"/>
+<circle cx="581.6" cy="238.7" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="663.5" cy="268.4" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="741.1" cy="300.6" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="710.9" cy="288.6" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="677.7" cy="258.7" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="654.3" cy="291.9" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="502.5" cy="244.9" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="659.6" cy="353.5" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="637.2" cy="309.2" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="578.1" cy="268.0" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="530.8" cy="283.2" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="596.7" cy="257.7" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="692.3" cy="291.3" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="611.3" cy="327.0" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="809.9" cy="329.7" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="681.6" cy="310.6" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="608.4" cy="254.9" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="568.9" cy="285.6" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="690.4" cy="303.5" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="539.6" cy="234.1" r="5" fill="#2a78d6" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="195.6" cy="483.9" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="263.9" cy="523.1" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="269.2" cy="551.8" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="249.7" cy="531.1" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="232.2" cy="471.7" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="202.9" cy="551.7" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="135.0" cy="480.5" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="198.5" cy="576.6" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="221.4" cy="585.5" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="174.6" cy="507.0" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="187.7" cy="534.2" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="197.0" cy="500.0" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="243.4" cy="547.7" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="204.3" cy="589.6" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="291.7" cy="603.4" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="260.9" cy="574.2" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="200.4" cy="515.2" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="179.0" cy="537.7" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="250.7" cy="559.8" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="187.7" cy="472.9" r="5" fill="#eb6834" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="293.2" cy="339.4" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="456.1" cy="346.9" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="444.4" cy="424.0" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="399.0" cy="377.2" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="288.3" cy="378.4" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="395.6" cy="386.1" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="264.4" cy="337.0" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="314.1" cy="479.9" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="296.1" cy="451.2" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="362.4" cy="351.9" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="331.2" cy="376.0" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="344.9" cy="383.4" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="384.4" cy="410.6" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="298.5" cy="488.8" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="478.1" cy="437.4" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="395.6" cy="445.6" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="352.2" cy="347.9" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="360.0" cy="386.8" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="389.3" cy="419.9" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<circle cx="282.9" cy="339.2" r="5" fill="#1baf7a" fill-opacity="0.55" stroke="#fff" stroke-width="2"/>
+<line x1="356.5" x2="356.5" y1="451.9" y2="405.4" stroke="#303133" stroke-width="1.5"/>
+<circle cx="356.5" cy="451.9" r="4" fill="#fff" stroke="#303133" stroke-width="1.5"/>
+<text x="342.5" y="419.7" font-size="15" fill="#303133" text-anchor="end" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">同损耗率下</text>
+<text x="342.5" y="441.7" font-size="16" font-weight="600" fill="#303133" text-anchor="end" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">平均 +4,141 元</text>
+<circle cx="636.8" cy="285.0" r="10" fill="#2a78d6" stroke="#fff" stroke-width="3"/>
+<text x="652.8" y="281.0" font-size="16" font-weight="600" fill="#303133" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">固定价（不降价）</text>
+<text x="652.8" y="301.0" font-size="14" fill="#606266" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">损耗 13.58% · 毛利 68,370 元</text>
+<circle cx="217.3" cy="534.9" r="10" fill="#eb6834" stroke="#fff" stroke-width="3"/>
+<text x="233.3" y="530.9" font-size="16" font-weight="600" fill="#303133" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">规则折扣（店主经验）</text>
+<text x="233.3" y="550.9" font-size="14" fill="#606266" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">损耗 4.99% · 毛利 49,861 元</text>
+<circle cx="356.5" cy="395.4" r="10" fill="#1baf7a" stroke="#fff" stroke-width="3"/>
+<text x="372.5" y="391.4" font-size="16" font-weight="600" fill="#303133" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">模型定价（本项目）</text>
+<text x="372.5" y="411.4" font-size="14" fill="#606266" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">损耗 7.84% · 毛利 60,194 元</text>
+<text x="978" y="134" font-size="14" fill="#909399">图例</text>
+<circle cx="986" cy="159" r="7" fill="#2a78d6" stroke="#fff" stroke-width="2"/>
+<text x="1002" y="164" font-size="14" fill="#303133">固定价（不降价）</text>
+<circle cx="986" cy="189" r="7" fill="#eb6834" stroke="#fff" stroke-width="2"/>
+<text x="1002" y="194" font-size="14" fill="#303133">规则折扣（店主经验）</text>
+<circle cx="986" cy="219" r="7" fill="#1baf7a" stroke="#fff" stroke-width="2"/>
+<text x="1002" y="224" font-size="14" fill="#303133">模型定价（本项目）</text>
+<circle cx="986" cy="249" r="4" fill="#909399" fill-opacity="0.55"/>
+<text x="1002" y="254" font-size="14" fill="#606266">小点 = 单个种子</text>
+<text x="1002" y="276" font-size="14" fill="#606266">大点 = 20 个种子均值</text>
+<line x1="978" x2="994" y1="305" y2="305" stroke="#b1b3b8" stroke-width="2"/>
+<text x="1002" y="310" font-size="14" fill="#606266">灰线 = 在不降价与</text>
+<text x="1002" y="330" font-size="14" fill="#606266">经验折扣之间取舍</text>
+<text x="1002" y="350" font-size="14" fill="#606266">能达到的位置</text>
+<text x="96" y="750" font-size="12" fill="#909399">数据：release/evaluation-report.md 附录 A（同一批顾客、同一初始库存、同一进货量的仿真对照）；生成：scripts/plot_tradeoff.py</text>
+</svg>
