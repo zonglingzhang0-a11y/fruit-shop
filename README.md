@@ -34,19 +34,22 @@
 # 1. 生成环境配置（检测 JDK/Maven/Node/Python，选定 Maven 镜像）
 powershell -ExecutionPolicy Bypass -File scripts/setup.ps1
 
-# 2. 构建与测试（本机 Maven 不在 PATH，统一走 wrapper；实测 94 个用例全绿）
+# 2. 构建与测试（本机 Maven 不在 PATH，统一走 wrapper；154 个用例）
 .\scripts\mvn.ps1 -B test
 
+# Python 依赖（一次）：python 指 3.12+ 的解释器；Windows 上 PATH 里的 python 不全时可以用 py -3.14
+python -m pip install -r requirements.txt
+
 # 3. 数据链路：原始 Excel -> CSV（一次性）-> 真实数据校准 -> 仿真种子 -> 独立核验
-& 'C:\Python314\python.exe' scripts/prepare_raw_data.py        # 约 1 分钟
-& 'C:\Python314\python.exe' scripts/calibrate_from_public.py   # 约 1 分钟
-& 'C:\Python314\python.exe' scripts/simulator.py run --seed 20260701 --days 120 --warmup-days 60
-& 'C:\Python314\python.exe' scripts/verify_seed_data.py        # 独立核验（不 import 仿真器，避免自证）
+python scripts/prepare_raw_data.py        # 约 1 分钟
+python scripts/calibrate_from_public.py   # 约 1 分钟
+python scripts/simulator.py run --seed 20260701 --days 120 --warmup-days 60
+python scripts/verify_seed_data.py        # 独立核验（不 import 仿真器，避免自证）
 
 # 4. 三策略评测（报告 + 7 张图）、看板 KPI 导出、弹性 ±30% 敏感性
-& 'C:\Python314\python.exe' scripts/evaluate_strategies.py --seeds 20
-& 'C:\Python314\python.exe' scripts/export_strategy_stats.py --rate-seeds 20 --days 120
-& 'C:\Python314\python.exe' scripts/sensitivity_elasticity.py --seeds 6
+python scripts/evaluate_strategies.py --seeds 20
+python scripts/export_strategy_stats.py --rate-seeds 20 --days 120
+python scripts/sensitivity_elasticity.py --seeds 6
 
 # 5. 端到端验证：接口冒烟 + 浏览器逐页验证与截图
 powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
@@ -61,14 +64,25 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 > 另：`export_strategy_stats.py` 的 `--days` 必须与种子一致（120），否则看板按 `bizDate` 查不到策略数据。
 > `e2e-browser.ps1` 会自动挑随机空闲端口（本机别的应用曾占用 5174，导致截到别人的页面）。
 
+## 持续集成（GitHub Actions）
+
+`.github/workflows/ci.yml`：每次推送到 `main`、每个 PR 自动跑，结果在 PR 页面的 Checks 里看。
+
+| 任务 | 内容 |
+| --- | --- |
+| 后端测试（H2） | `mvn -B test` |
+| 后端测试（MySQL 8.0 / 8.4） | 起真实 MySQL 容器，`mvn -B test -Dspring.profiles.active=mysql` |
+| 前端构建 | `npm ci` + `npm run build`（CI 在海外，改用 npm 官方源；本地 `.npmrc` 仍用国内镜像） |
+| Python 自检 | 按 `requirements.txt` 装固定版本依赖，跑 `pricing_rule` / `pricing_model` / `export_model_suggestions` / `evaluate_strategies` 的 `--selftest` |
+
 ## 已验证的事实（可现场复现）
 
 | 验证链 | 命令 | 实测结果 |
 | --- | --- | --- |
-| 后端测试 | `.\scripts\mvn.ps1 -B clean test` | **94 个用例全绿**（含接口契约锁、NFR-03 无自动执行、定时任务白名单） |
+| 后端测试 | `.\scripts\mvn.ps1 -B clean test` | **154 个用例全绿**（含接口契约锁、NFR-03 无自动执行、定时任务白名单；H2 与 MySQL profile 各跑一遍） |
 | 种子数据自洽 | `python scripts/verify_seed_data.py` | **全部检查通过**（台账不一致 0/2083；营业时段形状 Spearman r=0.996） |
-| 接口端到端 | `powershell -File scripts/smoke.ps1` | **13 个接口全绿**（临期 21 条、建议 6 折并附理由、高峰 10 点→推送 9 点） |
-| 浏览器端到端 | `powershell -File scripts/e2e-browser.ps1` | **6 个页面全部渲染正常**（含顾客端 H5），无控制台报错、无失败请求 |
+| 接口端到端 | `powershell -File scripts/smoke.ps1` | **21 次接口调用全绿**（临期 21 条、建议 6 折并附理由、高峰 10 点→推送 9 点） |
+| 浏览器端到端 | `powershell -File scripts/e2e-browser.ps1` | **7 个页面全部渲染正常**（工作台 6 个 + 顾客端 H5），无控制台报错、无失败请求 |
 | 弹性敏感性 | `python scripts/sensitivity_elasticity.py --seeds 6` | 三档 × 6 种子：**MODEL 对 RULE 全部 6/6 胜**，见 `release/sensitivity-elasticity.md` |
 | 三策略评测 | `python scripts/evaluate_strategies.py --seeds 20` | 20 种子 × 30 天测试期，报告 + 7 张图（`release/evaluation-report.md`） |
 
@@ -111,7 +125,9 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 **需人工补做**（不影响系统运行，详见 `docs/01` §8 与 `docs/04` §11）
 
 - 真实店主/会员访谈：`docs/04` §8 三张空表，需求侧 24 行仍标为 C 类"待访谈验证"。
-- `data/seed/pricing_model.json` 未产出：系统里选 MODEL 策略会**回退 RULE 并在理由里说明**（可选补）。
+- ~~`data/seed/pricing_model.json` 未产出~~：已接通（#2）。仓库自带 2026-06-29 的模型产物；其它业务日先运行
+  `python scripts/export_model_suggestions.py --biz-date <业务日>`，步骤见 `docs/03` §3.8。产物缺失/过期时 MODEL 仍会回退 RULE，
+  但会如实标为 RULE（`effective_strategy`），效果看板不再把规则定价算到模型头上。
 - `docs/05` 附录 A 的 NFR-03 验证记录待填（可引用 `NoAutonomousActionTest` 三条用例作为证据）。
 
 > 口径一致性说明（2026-10-11 已对齐）：主报告、敏感性报告与看板 KPI 现在**都带最低折扣线 0.60**，
@@ -122,15 +138,15 @@ cd frontend; npm install; npm run dev   # http://localhost:5173
 
 | 项 | 状态 | 用法 |
 | --- | --- | --- |
-| JDK | 21.0.8（`C:\Program Files\Android\openjdk\jdk-21.0.8`） | 由 `scripts/setup.ps1` 写入 `.tools.json` |
+| JDK | 21（作者机器用的是 Android Studio 自带的 OpenJDK 21.0.8） | 由 `scripts/setup.ps1` 自动探测并写入 `.tools.json` |
 | Maven | **不在 PATH**；`~/.m2/wrapper/dists` 有 3.9.6/3.9.12/3.10.0 | 一律用 `scripts/mvn.ps1`（自动加镜像 settings） |
 | Maven 中央仓 | `repo1.maven.org` 可达；`github.com` **不可达** | 依赖走 aliyun 镜像（`.mvn/settings-local.xml`） |
-| Python | **必须用 `C:\Python314\python.exe`**（pandas/scipy/sklearn 齐全）；PATH 上的 python 是残缺运行时 | 数据分析、仿真、评测 |
+| Python | 3.12+，依赖固定在 `requirements.txt`（`python -m pip install -r requirements.txt`）；作者机器 PATH 上的 python 是缺包的残缺运行时，`scripts/setup.ps1` 会自动挑一个可用的解释器写进 `.tools.json` | 数据分析、仿真、评测；文档里的 `python` 指装好依赖的那个解释器 |
 | Node | v24.14.1；npm 镜像 `registry.npmmirror.com` | 前端（`frontend/.npmrc` 已指向镜像） |
 | 下载 GitHub 文件 | `github.com`/`raw.githubusercontent.com` 不通，**`api.github.com` 通** | `curl -H 'Accept: application/vnd.github.raw' https://api.github.com/repos/{owner}/{repo}/contents/{urlencoded-path}` |
 | 前端构建 | Vite 6.4.4 + Rollup 4.64.3 下 **动态 `import()` 一个 `.vue` 文件会 build 失败**（静态 import 正常，dev 正常） | 路由/组件一律用静态 import；升级依赖后先跑 `npm run build` 复验 |
 | PowerShell 脚本 | 含中文的 `.ps1` **必须带 UTF-8 BOM**，否则 5.1 按 ANSI 解析报语法错误；含空格的路径传给 `Start-Process -ArgumentList` 要自己加引号 | 参考 `scripts/smoke.ps1` 头部注释 |
-| Docker/MySQL/Redis | 无 | 演示用 H2（MySQL 兼容模式），DDL 同时提供 MySQL 8 版本 |
+| Docker/MySQL/Redis | 无 | 演示用 H2（MySQL 兼容模式）；部署可切 MySQL 8：`--spring.profiles.active=mysql`，步骤见 docs/01-技术方案.md「切换到 MySQL 8」 |
 
 > 中文输出乱码时先执行：`chcp 65001` + `$OutputEncoding=[Text.Encoding]::UTF8`。
 

@@ -241,6 +241,7 @@ class PushServiceTest {
     void disabledMemberIsSkippedWithOptOutReason() {
         LocalDate bizDate = LocalDate.of(2038, 3, 4);
         FruitItem item = ShopFixtures.item(itemMapper, "开关测试橙", "测试开关类D", "5.00", "12.00", 5);
+        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(1), 5, "10", "5.00");
         Member disabled = ShopFixtures.member(memberMapper, "关闭推送会员D", false);
         Member enabled = ShopFixtures.member(memberMapper, "正常会员D", true);
         ShopFixtures.pref(memberPrefMapper, disabled.getId(), item.getCategoryName(), "9.000", 9);
@@ -276,6 +277,7 @@ class PushServiceTest {
     void autoSelectOnlyTargetsMembersWithCategoryPreference() {
         LocalDate bizDate = LocalDate.of(2038, 3, 5);
         FruitItem item = ShopFixtures.item(itemMapper, "选人测试蓝莓", "测试选人类E", "9.00", "22.00", 4);
+        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(1), 4, "10", "9.00");
         Member hit = ShopFixtures.member(memberMapper, "买过蓝莓的会员E", true);
         Member noPref = ShopFixtures.member(memberMapper, "没有任何偏好的会员E", true);
         ShopFixtures.pref(memberPrefMapper, hit.getId(), item.getCategoryName(), "7.500", 4);

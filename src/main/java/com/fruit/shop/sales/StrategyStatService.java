@@ -3,7 +3,6 @@ package com.fruit.shop.sales;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fruit.shop.pricing.domain.PricingSuggestion;
 import com.fruit.shop.pricing.mapper.PricingSuggestionMapper;
-import com.fruit.shop.sales.domain.StrategyDailyStat;
 import com.fruit.shop.sales.mapper.StrategyDailyStatMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,10 @@ public class StrategyStatService {
         this.suggestionMapper = suggestionMapper;
     }
 
-    /** 按批次（优先）或商品推断该笔销售归属的策略；推断不出来返回 null。 */
+    /**
+     * 按批次（优先）或商品推断该笔销售归属的策略；推断不出来返回 null。
+     * 归属到<b>实际给出价格的策略</b>（effective_strategy）：请求 MODEL 但回退规则版的建议算 RULE。
+     */
     public String inferStrategy(Long batchId, Long itemId, LocalDate bizDate) {
         LocalDate day = bizDate == null ? LocalDate.now() : bizDate;
         PricingSuggestion suggestion = null;
@@ -56,7 +58,10 @@ public class StrategyStatService {
                     .orderByDesc(PricingSuggestion::getId)
                     .last("LIMIT 1"));
         }
-        return suggestion == null ? null : suggestion.getStrategy();
+        if (suggestion == null) {
+            return null;
+        }
+        return suggestion.getEffectiveStrategy() != null ? suggestion.getEffectiveStrategy() : suggestion.getStrategy();
     }
 
     /**
@@ -74,30 +79,9 @@ public class StrategyStatService {
             return false;
         }
         String code = strategy.trim().toUpperCase();
-        StrategyDailyStat stat = statMapper.selectOne(Wrappers.<StrategyDailyStat>lambdaQuery()
-                .eq(StrategyDailyStat::getBizDate, bizDate)
-                .eq(StrategyDailyStat::getStrategy, code)
-                .last("LIMIT 1"));
-        if (stat == null) {
-            stat = new StrategyDailyStat();
-            stat.setBizDate(bizDate);
-            stat.setStrategy(code);
-            stat.setSoldQty(soldQty);
-            stat.setScrapQty(BigDecimal.ZERO);
-            stat.setRevenue(nz(revenue));
-            stat.setCost(nz(cost));
-            stat.setGrossProfit(nz(revenue).subtract(nz(cost)));
-            stat.setScrapRate(scrapRate(BigDecimal.ZERO, soldQty));
-            stat.setStockoutRate(BigDecimal.ZERO);
-            statMapper.insert(stat);
-        } else {
-            stat.setSoldQty(nz(stat.getSoldQty()).add(soldQty));
-            stat.setRevenue(nz(stat.getRevenue()).add(nz(revenue)));
-            stat.setCost(nz(stat.getCost()).add(nz(cost)));
-            stat.setGrossProfit(stat.getRevenue().subtract(stat.getCost()));
-            stat.setScrapRate(scrapRate(stat.getScrapQty(), stat.getSoldQty()));
-            statMapper.updateById(stat);
-        }
+        // 一条语句完成"没有就插、有就累加"（INSERT ... ON DUPLICATE KEY UPDATE，H2 的 MySQL 模式同样支持）。
+        // 不用"先 UPDATE、0 行再 INSERT、撞索引再 UPDATE"：那种写法在 MySQL 可重复读下两个首笔并发会互相等间隙锁而死锁
+        statMapper.upsertAccumulate(bizDate, code, soldQty, nz(revenue), nz(cost));
         log.debug("[sales] 统计累加 bizDate={} strategy={} soldQty={} revenue={}", bizDate, code, soldQty, revenue);
         return true;
     }

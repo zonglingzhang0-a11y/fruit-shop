@@ -12,6 +12,12 @@
 --   D. 新增 shop_traffic_profile：按"星期 × 小时"的客流规律 —— 对应参考表 traffic_profile
 -- =============================================================================
 
+-- 先删"建表完成"标志表（seed_load_log，见 com.fruit.shop.config.SchemaInitConfig.MARKER_TABLE）：
+-- 本脚本是逐条 DROP/CREATE、不在一个事务里，中途被打断（Ctrl-C、权限不足、锁等待超时）时，
+-- 标志表必须已经不在，下次以 keep-existing 启动才会重新完整建表，而不是把半套表当成完整结构。
+-- 它在脚本末尾重新创建，是最后一张表。
+DROP TABLE IF EXISTS seed_load_log;
+
 -- 0. 自检表 -------------------------------------------------------------------
 DROP TABLE IF EXISTS health_check;
 CREATE TABLE health_check (
@@ -78,6 +84,7 @@ CREATE TABLE pricing_suggestion (
   suggested_price DECIMAL(10,2) NOT NULL,
   discount_rate   DECIMAL(4,2)  NOT NULL,
   strategy        VARCHAR(16)   NOT NULL,
+  effective_strategy VARCHAR(16) NULL,     -- 实际给出价格的策略（请求 MODEL 但回退规则时为 RULE）
   expected_qty    DECIMAL(10,2) NULL,
   reason          VARCHAR(255)  NULL,
   -- v2 定价约束留痕
@@ -174,7 +181,8 @@ CREATE TABLE push_task (
   content               VARCHAR(512) NOT NULL,
   status                VARCHAR(16)  NOT NULL DEFAULT 'PLANNED',  -- PLANNED/SENT/CANCELLED
   created_at            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  sent_at               TIMESTAMP    NULL
+  sent_at               TIMESTAMP    NULL,
+  discount_rate         DECIMAL(4,2) NULL               -- 预览时店主看到的折扣（无确认价时发送沿用它）
 );
 CREATE INDEX idx_push_task_date ON push_task (biz_date);
 
@@ -209,9 +217,12 @@ CREATE TABLE sales_record (
   is_discount BOOLEAN       NOT NULL DEFAULT FALSE,
   is_return   BOOLEAN       NOT NULL DEFAULT FALSE,
   member_id   BIGINT        NULL,   -- v2：归因需要（推送转化统计）
-  source      VARCHAR(16)   NOT NULL DEFAULT 'REAL'
+  source      VARCHAR(16)   NOT NULL DEFAULT 'REAL',
+  request_no  VARCHAR(64)   NULL,   -- 业务流水号（幂等键）：同一笔销售重复提交只记一次
+  requested_qty DECIMAL(10,2) NULL  -- 原始请求数量（带符号；库存不足时 quantity 会被截断）
 );
 CREATE INDEX idx_sales_date_item ON sales_record (biz_date, item_id);
+CREATE UNIQUE INDEX uk_sales_request_no ON sales_record (request_no);
 
 -- 9. 策略日统计（效果看板数据源）-----------------------------------------------
 DROP TABLE IF EXISTS strategy_daily_stat;

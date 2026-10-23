@@ -158,7 +158,7 @@ python scripts\simulator.py run --seed 20260701 --days 120 --warmup-days 60
 python scripts\verify_seed_data.py         # 独立核验
 python scripts\evaluate_strategies.py --seeds 20 --min-discount-rate 0.60   # 三策略对照（约 4 分钟）
 ``````
-> Python 脚本需要 pandas / numpy / scipy / matplotlib（本机用 ``C:\Python314\python.exe`` 验证）。
+> Python 脚本的依赖固定在 ``requirements.txt``：``python -m pip install -r requirements.txt``（Python 3.12+）。
 
 ## 五、这个包里有什么
 
@@ -166,9 +166,9 @@ python scripts\evaluate_strategies.py --seeds 20 --min-discount-rate 0.60   # �
 | --- | --- |
 | ``dist/`` ``frontend/dist/`` | 预构建的后端 jar 与前端页面（直接可用） |
 | ``src/`` | 后端源码（124 个 Java 类，含 94 个测试用例） |
-| ``frontend/src/`` | 前端源码（6 个页面） |
+| ``frontend/src/`` | 前端源码（7 个页面） |
 | ``docs/`` | 8 篇文档（启动流程 / 技术方案 / 仿真器 / 定价设计 / 需求调研 / 合规 / 演示手册 / 参考架构差异）+ 参考架构原件 |
-| ``release/`` | 评测报告、敏感性报告、9 张图表、6 张页面截图 |
+| ``release/`` | 评测报告、敏感性报告、9 张图表、7 张页面截图 |
 | ``data/seed/`` | 120 天种子数据 + 真实数据校准产物 |
 | ``scripts/`` | 全部可复现脚本（环境 / 清洗 / 校准 / 仿真 / 评测 / 冒烟 / 浏览器验证 / 打包） |
 | ``CHANGELOG.md`` | 版本说明与核心结论 |

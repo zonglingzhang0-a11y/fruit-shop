@@ -1,0 +1,759 @@
+{
+  "schemaVersion": 1,
+  "bizDate": "2026-06-29",
+  "generatedAt": "2026-10-17T20:39:15",
+  "modelVersion": "pricing_model.py@b6637fc24168",
+  "modelStatus": "ok",
+  "modelNote": "按单品联合决策 38 个单品、81 个在售批次；训练样本 2280 行，剔除缺货截断 41 行（期初库存由台账与销量重建，未扣日常损耗，部分断货日可能识别不到）",
+  "inputSource": "seed",
+  "inputHash": "521af5e7ba623565",
+  "historyWindow": {
+    "from": "2026-04-30",
+    "to": "2026-06-28",
+    "days": 60,
+    "rows": 2280
+  },
+  "minDiscountRate": 0.6,
+  "fit": {
+    "n_obs_raw": 2280,
+    "n_dropped_stockout": 41,
+    "n_dropped_noprice": 8,
+    "n_dropped_nonpositive": 0,
+    "n_items_own_beta": 36,
+    "n_items_prior_level": 0,
+    "price_basis": "unit_price/base_price（台账原价）",
+    "status": "ok",
+    "n_obs_used": 2231
+  },
+  "suggestions": [
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F1001-0029",
+      "itemId": null,
+      "itemCode": "F1001",
+      "discountRate": 1.0,
+      "expectedQty": 10.56,
+      "reason": "模型定价：单品2个批次共269件（最临期剩余4天）；估计当日需求25.8件，维持原价期望售出25.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.48）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F1001-0030",
+      "itemId": null,
+      "itemCode": "F1001",
+      "discountRate": 1.0,
+      "expectedQty": 15.27,
+      "reason": "模型定价：单品2个批次共269件（最临期剩余4天）；估计当日需求25.8件，维持原价期望售出25.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.48）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F1002-0060",
+      "itemId": null,
+      "itemCode": "F1002",
+      "discountRate": 1.0,
+      "expectedQty": 2.17,
+      "reason": "模型定价：单品1个批次共2件（最临期剩余6天）；估计当日需求10.8件，维持原价期望售出2.2件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.13）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260621-F1003-0089",
+      "itemId": null,
+      "itemCode": "F1003",
+      "discountRate": 1.0,
+      "expectedQty": 1.1,
+      "reason": "模型定价：单品3个批次共128件（最临期剩余1天）；估计当日需求13.7件，维持原价期望售出13.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F1003-0090",
+      "itemId": null,
+      "itemCode": "F1003",
+      "discountRate": 1.0,
+      "expectedQty": 7.46,
+      "reason": "模型定价：单品3个批次共128件（最临期剩余1天）；估计当日需求13.7件，维持原价期望售出13.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F1003-0091",
+      "itemId": null,
+      "itemCode": "F1003",
+      "discountRate": 1.0,
+      "expectedQty": 5.16,
+      "reason": "模型定价：单品3个批次共128件（最临期剩余1天）；估计当日需求13.7件，维持原价期望售出13.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260622-F1004-0130",
+      "itemId": null,
+      "itemCode": "F1004",
+      "discountRate": 1.0,
+      "expectedQty": 1.7,
+      "reason": "模型定价：单品3个批次共102件（最临期剩余1天）；估计当日需求11.7件，维持原价期望售出11.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.37）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F1004-0131",
+      "itemId": null,
+      "itemCode": "F1004",
+      "discountRate": 1.0,
+      "expectedQty": 5.62,
+      "reason": "模型定价：单品3个批次共102件（最临期剩余1天）；估计当日需求11.7件，维持原价期望售出11.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.37）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F1004-0132",
+      "itemId": null,
+      "itemCode": "F1004",
+      "discountRate": 1.0,
+      "expectedQty": 4.43,
+      "reason": "模型定价：单品3个批次共102件（最临期剩余1天）；估计当日需求11.7件，维持原价期望售出11.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.37）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F1005-0162",
+      "itemId": null,
+      "itemCode": "F1005",
+      "discountRate": 1.0,
+      "expectedQty": 2.45,
+      "reason": "模型定价：单品2个批次共74件（最临期剩余4天）；估计当日需求7.3件，维持原价期望售出7.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F1005-0163",
+      "itemId": null,
+      "itemCode": "F1005",
+      "discountRate": 1.0,
+      "expectedQty": 4.81,
+      "reason": "模型定价：单品2个批次共74件（最临期剩余4天）；估计当日需求7.3件，维持原价期望售出7.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F1006-0222",
+      "itemId": null,
+      "itemCode": "F1006",
+      "discountRate": 1.0,
+      "expectedQty": 2.64,
+      "reason": "模型定价：单品2个批次共41件（最临期剩余3天）；估计当日需求8.7件，维持原价期望售出8.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.15）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F1006-0223",
+      "itemId": null,
+      "itemCode": "F1006",
+      "discountRate": 1.0,
+      "expectedQty": 6.11,
+      "reason": "模型定价：单品2个批次共41件（最临期剩余3天）；估计当日需求8.7件，维持原价期望售出8.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.15）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F1007-0283",
+      "itemId": null,
+      "itemCode": "F1007",
+      "discountRate": 1.0,
+      "expectedQty": 4.41,
+      "reason": "模型定价：单品2个批次共43件（最临期剩余3天）；估计当日需求13.7件，维持原价期望售出13.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.28）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F1007-0284",
+      "itemId": null,
+      "itemCode": "F1007",
+      "discountRate": 1.0,
+      "expectedQty": 9.25,
+      "reason": "模型定价：单品2个批次共43件（最临期剩余3天）；估计当日需求13.7件，维持原价期望售出13.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.28）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260624-F2001-0342",
+      "itemId": null,
+      "itemCode": "F2001",
+      "discountRate": 1.0,
+      "expectedQty": 1.77,
+      "reason": "模型定价：单品3个批次共119件（最临期剩余1天）；估计当日需求19.6件，维持原价期望售出19.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F2001-0343",
+      "itemId": null,
+      "itemCode": "F2001",
+      "discountRate": 1.0,
+      "expectedQty": 7.86,
+      "reason": "模型定价：单品3个批次共119件（最临期剩余1天）；估计当日需求19.6件，维持原价期望售出19.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F2001-0344",
+      "itemId": null,
+      "itemCode": "F2001",
+      "discountRate": 1.0,
+      "expectedQty": 9.93,
+      "reason": "模型定价：单品3个批次共119件（最临期剩余1天）；估计当日需求19.6件，维持原价期望售出19.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260624-F2002-0383",
+      "itemId": null,
+      "itemCode": "F2002",
+      "discountRate": 1.0,
+      "expectedQty": 5.33,
+      "reason": "模型定价：单品2个批次共160件（最临期剩余2天）；估计当日需求15.8件，维持原价期望售出15.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F2002-0384",
+      "itemId": null,
+      "itemCode": "F2002",
+      "discountRate": 1.0,
+      "expectedQty": 10.46,
+      "reason": "模型定价：单品2个批次共160件（最临期剩余2天）；估计当日需求15.8件，维持原价期望售出15.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F2003-0424",
+      "itemId": null,
+      "itemCode": "F2003",
+      "discountRate": 1.0,
+      "expectedQty": 6.89,
+      "reason": "模型定价：单品2个批次共116件（最临期剩余3天）；估计当日需求13.9件，维持原价期望售出13.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.43）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F2003-0425",
+      "itemId": null,
+      "itemCode": "F2003",
+      "discountRate": 1.0,
+      "expectedQty": 6.98,
+      "reason": "模型定价：单品2个批次共116件（最临期剩余3天）；估计当日需求13.9件，维持原价期望售出13.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.43）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F2004-0464",
+      "itemId": null,
+      "itemCode": "F2004",
+      "discountRate": 1.0,
+      "expectedQty": 5.09,
+      "reason": "模型定价：单品3个批次共199件（最临期剩余2天）；估计当日需求16.8件，维持原价期望售出16.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.33）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F2004-0465",
+      "itemId": null,
+      "itemCode": "F2004",
+      "discountRate": 1.0,
+      "expectedQty": 6.43,
+      "reason": "模型定价：单品3个批次共199件（最临期剩余2天）；估计当日需求16.8件，维持原价期望售出16.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.33）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F2004-0466",
+      "itemId": null,
+      "itemCode": "F2004",
+      "discountRate": 1.0,
+      "expectedQty": 5.26,
+      "reason": "模型定价：单品3个批次共199件（最临期剩余2天）；估计当日需求16.8件，维持原价期望售出16.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.33）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260620-F2005-0495",
+      "itemId": null,
+      "itemCode": "F2005",
+      "discountRate": 1.0,
+      "expectedQty": 0.99,
+      "reason": "模型定价：单品3个批次共73件（最临期剩余1天）；估计当日需求5.6件，维持原价期望售出5.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260624-F2005-0496",
+      "itemId": null,
+      "itemCode": "F2005",
+      "discountRate": 1.0,
+      "expectedQty": 1.98,
+      "reason": "模型定价：单品3个批次共73件（最临期剩余1天）；估计当日需求5.6件，维持原价期望售出5.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F2005-0497",
+      "itemId": null,
+      "itemCode": "F2005",
+      "discountRate": 1.0,
+      "expectedQty": 2.59,
+      "reason": "模型定价：单品3个批次共73件（最临期剩余1天）；估计当日需求5.6件，维持原价期望售出5.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F2006-0527",
+      "itemId": null,
+      "itemCode": "F2006",
+      "discountRate": 1.0,
+      "expectedQty": 1.69,
+      "reason": "模型定价：单品2个批次共47件（最临期剩余4天）；估计当日需求4.0件，维持原价期望售出4.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.53）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F2006-0528",
+      "itemId": null,
+      "itemCode": "F2006",
+      "discountRate": 1.0,
+      "expectedQty": 2.28,
+      "reason": "模型定价：单品2个批次共47件（最临期剩余4天）；估计当日需求4.0件，维持原价期望售出4.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.53）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F3001-0647",
+      "itemId": null,
+      "itemCode": "F3001",
+      "discountRate": 1.0,
+      "expectedQty": 12.47,
+      "reason": "模型定价：单品2个批次共48件（最临期剩余1天）；估计当日需求24.9件，维持原价期望售出24.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F3001-0648",
+      "itemId": null,
+      "itemCode": "F3001",
+      "discountRate": 1.0,
+      "expectedQty": 12.47,
+      "reason": "模型定价：单品2个批次共48件（最临期剩余1天）；估计当日需求24.9件，维持原价期望售出24.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F3002-0708",
+      "itemId": null,
+      "itemCode": "F3002",
+      "discountRate": 1.0,
+      "expectedQty": 2.31,
+      "reason": "模型定价：单品2个批次共40件（最临期剩余2天）；估计当日需求10.3件，维持原价期望售出10.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F3002-0709",
+      "itemId": null,
+      "itemCode": "F3002",
+      "discountRate": 1.0,
+      "expectedQty": 7.97,
+      "reason": "模型定价：单品2个批次共40件（最临期剩余2天）；估计当日需求10.3件，维持原价期望售出10.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F3003-0768",
+      "itemId": null,
+      "itemCode": "F3003",
+      "discountRate": 1.0,
+      "expectedQty": 0.52,
+      "reason": "模型定价：单品2个批次共29件（最临期剩余2天）；估计当日需求8.6件，维持原价期望售出8.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F3003-0769",
+      "itemId": null,
+      "itemCode": "F3003",
+      "discountRate": 1.0,
+      "expectedQty": 8.08,
+      "reason": "模型定价：单品2个批次共29件（最临期剩余2天）；估计当日需求8.6件，维持原价期望售出8.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F3004-0889",
+      "itemId": null,
+      "itemCode": "F3004",
+      "discountRate": 1.0,
+      "expectedQty": 4.58,
+      "reason": "模型定价：单品1个批次共6件（最临期剩余2天）；估计当日需求5.1件，维持原价期望售出4.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F3005-1009",
+      "itemId": null,
+      "itemCode": "F3005",
+      "discountRate": 1.0,
+      "expectedQty": 2.79,
+      "reason": "模型定价：单品1个批次共3件（最临期剩余2天）；估计当日需求4.7件，维持原价期望售出2.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.96）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F4001-1069",
+      "itemId": null,
+      "itemCode": "F4001",
+      "discountRate": 1.0,
+      "expectedQty": 4.96,
+      "reason": "模型定价：单品2个批次共78件（最临期剩余2天）；估计当日需求22.0件，维持原价期望售出22.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F4001-1070",
+      "itemId": null,
+      "itemCode": "F4001",
+      "discountRate": 1.0,
+      "expectedQty": 17.08,
+      "reason": "模型定价：单品2个批次共78件（最临期剩余2天）；估计当日需求22.0件，维持原价期望售出22.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F4002-1130",
+      "itemId": null,
+      "itemCode": "F4002",
+      "discountRate": 1.0,
+      "expectedQty": 14.73,
+      "reason": "模型定价：单品1个批次共41件（最临期剩余4天）；估计当日需求14.7件，维持原价期望售出14.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F4003-1190",
+      "itemId": null,
+      "itemCode": "F4003",
+      "discountRate": 1.0,
+      "expectedQty": 5.58,
+      "reason": "模型定价：单品2个批次共44件（最临期剩余2天）；估计当日需求11.5件，维持原价期望售出11.5件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F4003-1191",
+      "itemId": null,
+      "itemCode": "F4003",
+      "discountRate": 1.0,
+      "expectedQty": 5.9,
+      "reason": "模型定价：单品2个批次共44件（最临期剩余2天）；估计当日需求11.5件，维持原价期望售出11.5件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F4004-1251",
+      "itemId": null,
+      "itemCode": "F4004",
+      "discountRate": 1.0,
+      "expectedQty": 3.16,
+      "reason": "模型定价：单品1个批次共3件（最临期剩余5天）；估计当日需求12.5件，维持原价期望售出3.2件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.13）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F4005-1369",
+      "itemId": null,
+      "itemCode": "F4005",
+      "discountRate": 1.0,
+      "expectedQty": 1.38,
+      "reason": "模型定价：单品3个批次共25件（最临期剩余1天）；估计当日需求7.4件，维持原价期望售出7.4件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F4005-1370",
+      "itemId": null,
+      "itemCode": "F4005",
+      "discountRate": 1.0,
+      "expectedQty": 3.26,
+      "reason": "模型定价：单品3个批次共25件（最临期剩余1天）；估计当日需求7.4件，维持原价期望售出7.4件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F4005-1371",
+      "itemId": null,
+      "itemCode": "F4005",
+      "discountRate": 1.0,
+      "expectedQty": 2.72,
+      "reason": "模型定价：单品3个批次共25件（最临期剩余1天）；估计当日需求7.4件，维持原价期望售出7.4件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F5001-1430",
+      "itemId": null,
+      "itemCode": "F5001",
+      "discountRate": 1.0,
+      "expectedQty": 7.62,
+      "reason": "模型定价：单品2个批次共112件（最临期剩余2天）；估计当日需求29.7件，维持原价期望售出29.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.37）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F5001-1431",
+      "itemId": null,
+      "itemCode": "F5001",
+      "discountRate": 1.0,
+      "expectedQty": 22.11,
+      "reason": "模型定价：单品2个批次共112件（最临期剩余2天）；估计当日需求29.7件，维持原价期望售出29.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.37）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F5002-1491",
+      "itemId": null,
+      "itemCode": "F5002",
+      "discountRate": 1.0,
+      "expectedQty": 9.14,
+      "reason": "模型定价：单品2个批次共79件（最临期剩余3天）；估计当日需求16.6件，维持原价期望售出16.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F5002-1492",
+      "itemId": null,
+      "itemCode": "F5002",
+      "discountRate": 1.0,
+      "expectedQty": 7.41,
+      "reason": "模型定价：单品2个批次共79件（最临期剩余3天）；估计当日需求16.6件，维持原价期望售出16.6件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F5003-1531",
+      "itemId": null,
+      "itemCode": "F5003",
+      "discountRate": 1.0,
+      "expectedQty": 1.39,
+      "reason": "模型定价：单品3个批次共141件（最临期剩余2天）；估计当日需求12.3件，维持原价期望售出12.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.48）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F5003-1532",
+      "itemId": null,
+      "itemCode": "F5003",
+      "discountRate": 1.0,
+      "expectedQty": 5.84,
+      "reason": "模型定价：单品3个批次共141件（最临期剩余2天）；估计当日需求12.3件，维持原价期望售出12.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.48）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F5003-1533",
+      "itemId": null,
+      "itemCode": "F5003",
+      "discountRate": 1.0,
+      "expectedQty": 5.06,
+      "reason": "模型定价：单品3个批次共141件（最临期剩余2天）；估计当日需求12.3件，维持原价期望售出12.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.48）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F5004-1563",
+      "itemId": null,
+      "itemCode": "F5004",
+      "discountRate": 1.0,
+      "expectedQty": 11.05,
+      "reason": "模型定价：单品2个批次共268件（最临期剩余5天）；估计当日需求17.9件，维持原价期望售出17.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.29）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F5004-1564",
+      "itemId": null,
+      "itemCode": "F5004",
+      "discountRate": 1.0,
+      "expectedQty": 6.9,
+      "reason": "模型定价：单品2个批次共268件（最临期剩余5天）；估计当日需求17.9件，维持原价期望售出17.9件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.29）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F5005-1604",
+      "itemId": null,
+      "itemCode": "F5005",
+      "discountRate": 1.0,
+      "expectedQty": 3.15,
+      "reason": "模型定价：单品2个批次共59件（最临期剩余3天）；估计当日需求7.7件，维持原价期望售出7.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.46）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F5005-1605",
+      "itemId": null,
+      "itemCode": "F5005",
+      "discountRate": 1.0,
+      "expectedQty": 4.59,
+      "reason": "模型定价：单品2个批次共59件（最临期剩余3天）；估计当日需求7.7件，维持原价期望售出7.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.46）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260623-F5006-1644",
+      "itemId": null,
+      "itemCode": "F5006",
+      "discountRate": 1.0,
+      "expectedQty": 0.98,
+      "reason": "模型定价：单品3个批次共70件（最临期剩余1天）；估计当日需求4.3件，维持原价期望售出4.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F5006-1645",
+      "itemId": null,
+      "itemCode": "F5006",
+      "discountRate": 1.0,
+      "expectedQty": 1.72,
+      "reason": "模型定价：单品3个批次共70件（最临期剩余1天）；估计当日需求4.3件，维持原价期望售出4.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F5006-1646",
+      "itemId": null,
+      "itemCode": "F5006",
+      "discountRate": 1.0,
+      "expectedQty": 1.59,
+      "reason": "模型定价：单品3个批次共70件（最临期剩余1天）；估计当日需求4.3件，维持原价期望售出4.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F5007-1705",
+      "itemId": null,
+      "itemCode": "F5007",
+      "discountRate": 1.0,
+      "expectedQty": 2.18,
+      "reason": "模型定价：单品2个批次共32件（最临期剩余3天）；估计当日需求7.0件，维持原价期望售出7.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F5007-1706",
+      "itemId": null,
+      "itemCode": "F5007",
+      "discountRate": 1.0,
+      "expectedQty": 4.79,
+      "reason": "模型定价：单品2个批次共32件（最临期剩余3天）；估计当日需求7.0件，维持原价期望售出7.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260621-F5008-1735",
+      "itemId": null,
+      "itemCode": "F5008",
+      "discountRate": 1.0,
+      "expectedQty": 1.41,
+      "reason": "模型定价：单品3个批次共114件（最临期剩余2天）；估计当日需求5.2件，维持原价期望售出5.2件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.18）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F5008-1736",
+      "itemId": null,
+      "itemCode": "F5008",
+      "discountRate": 1.0,
+      "expectedQty": 2.27,
+      "reason": "模型定价：单品3个批次共114件（最临期剩余2天）；估计当日需求5.2件，维持原价期望售出5.2件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.18）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F5008-1737",
+      "itemId": null,
+      "itemCode": "F5008",
+      "discountRate": 1.0,
+      "expectedQty": 1.5,
+      "reason": "模型定价：单品3个批次共114件（最临期剩余2天）；估计当日需求5.2件，维持原价期望售出5.2件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.18）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F6001-1777",
+      "itemId": null,
+      "itemCode": "F6001",
+      "discountRate": 1.0,
+      "expectedQty": 25.16,
+      "reason": "模型定价：单品2个批次共366件（最临期剩余5天）；估计当日需求58.8件，维持原价期望售出58.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.67）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F6001-1778",
+      "itemId": null,
+      "itemCode": "F6001",
+      "discountRate": 1.0,
+      "expectedQty": 33.65,
+      "reason": "模型定价：单品2个批次共366件（最临期剩余5天）；估计当日需求58.8件，维持原价期望售出58.8件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.67）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260624-F6002-1817",
+      "itemId": null,
+      "itemCode": "F6002",
+      "discountRate": 1.0,
+      "expectedQty": 1.86,
+      "reason": "模型定价：单品2个批次共50件（最临期剩余3天）；估计当日需求9.3件，维持原价期望售出9.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F6002-1818",
+      "itemId": null,
+      "itemCode": "F6002",
+      "discountRate": 1.0,
+      "expectedQty": 7.42,
+      "reason": "模型定价：单品2个批次共50件（最临期剩余3天）；估计当日需求9.3件，维持原价期望售出9.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260622-F6003-1857",
+      "itemId": null,
+      "itemCode": "F6003",
+      "discountRate": 1.0,
+      "expectedQty": 1.38,
+      "reason": "模型定价：单品3个批次共85件（最临期剩余1天）；估计当日需求6.5件，维持原价期望售出6.5件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260625-F6003-1858",
+      "itemId": null,
+      "itemCode": "F6003",
+      "discountRate": 1.0,
+      "expectedQty": 2.54,
+      "reason": "模型定价：单品3个批次共85件（最临期剩余1天）；估计当日需求6.5件，维持原价期望售出6.5件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F6003-1859",
+      "itemId": null,
+      "itemCode": "F6003",
+      "discountRate": 1.0,
+      "expectedQty": 2.61,
+      "reason": "模型定价：单品3个批次共85件（最临期剩余1天）；估计当日需求6.5件，维持原价期望售出6.5件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.24）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F6004-1919",
+      "itemId": null,
+      "itemCode": "F6004",
+      "discountRate": 1.0,
+      "expectedQty": 6.84,
+      "reason": "模型定价：单品2个批次共73件（最临期剩余4天）；估计当日需求11.3件，维持原价期望售出11.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F6004-1920",
+      "itemId": null,
+      "itemCode": "F6004",
+      "discountRate": 1.0,
+      "expectedQty": 4.46,
+      "reason": "模型定价：单品2个批次共73件（最临期剩余4天）；估计当日需求11.3件，维持原价期望售出11.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F7001-1979",
+      "itemId": null,
+      "itemCode": "F7001",
+      "discountRate": 1.0,
+      "expectedQty": 5.28,
+      "reason": "模型定价：单品2个批次共79件（最临期剩余3天）；估计当日需求14.0件，维持原价期望售出14.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.15）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260628-F7001-1980",
+      "itemId": null,
+      "itemCode": "F7001",
+      "discountRate": 1.0,
+      "expectedQty": 8.71,
+      "reason": "模型定价：单品2个批次共79件（最临期剩余3天）；估计当日需求14.0件，维持原价期望售出14.0件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.15）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260627-F7002-2040",
+      "itemId": null,
+      "itemCode": "F7002",
+      "discountRate": 1.0,
+      "expectedQty": 7.2,
+      "reason": "模型定价：单品2个批次共58件（最临期剩余3天）；估计当日需求15.3件，维持原价期望售出15.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F7002-2041",
+      "itemId": null,
+      "itemCode": "F7002",
+      "discountRate": 1.0,
+      "expectedQty": 8.08,
+      "reason": "模型定价：单品2个批次共58件（最临期剩余3天）；估计当日需求15.3件，维持原价期望售出15.3件；按含报废成本的单品总期望收益选维持原价（估计弹性-0.10）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260626-F7003-2081",
+      "itemId": null,
+      "itemCode": "F7003",
+      "discountRate": 1.0,
+      "expectedQty": 5.33,
+      "reason": "模型定价：单品2个批次共73件（最临期剩余4天）；估计当日需求9.7件，维持原价期望售出9.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-1.08）"
+    },
+    {
+      "batchId": null,
+      "batchNo": "B20260629-F7003-2082",
+      "itemId": null,
+      "itemCode": "F7003",
+      "discountRate": 1.0,
+      "expectedQty": 4.4,
+      "reason": "模型定价：单品2个批次共73件（最临期剩余4天）；估计当日需求9.7件，维持原价期望售出9.7件；按含报废成本的单品总期望收益选维持原价（估计弹性-1.08）"
+    }
+  ]
+}

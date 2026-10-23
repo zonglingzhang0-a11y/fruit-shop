@@ -5,7 +5,7 @@
 将来 Excel 若有更新，重跑本脚本即可对比差异。
 
 用法：
-    & 'C:\\Python314\\python.exe' scripts/export_reference_arch.py
+    python scripts/export_reference_arch.py
 输出：
     docs/reference/水果店临期定价系统设计.md
 """

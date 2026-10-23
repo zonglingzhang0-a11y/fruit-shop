@@ -89,15 +89,15 @@ class PricingConstraintsTest {
         assertThat(rule.suggestedPrice()).isEqualByComparingTo("6.00");
         assertThat(rule.reason()).contains("触到店主设定的最低折扣线");
 
-        // FIXED：固定 7 折，本身高于底线 → 不触底、raw == 实际档位
+        // FIXED：一律原价，本身高于底线 → 不触底、raw == 实际档位
         FruitItem fixedItem = ShopFixtures.item(itemMapper, "底线固定果", ShopFixtures.unique("底线类"),
                 "4.00", "10.00", 5);
         var fixedBatch = ShopFixtures.batch(batchMapper, fixedItem.getId(), fixedDate.minusDays(5), 5, "6", "4.00");
         generate(fixedDate, "FIXED");
         SuggestionView fixed = mine(fixedDate, "FIXED", fixedBatch.getId());
-        assertThat(fixed.discountRate()).isEqualByComparingTo("0.70");
+        assertThat(fixed.discountRate()).isEqualByComparingTo("1.00");
         assertThat(fixed.priceFloorHit()).isFalse();
-        assertThat(fixed.rawDiscountRate()).isEqualByComparingTo("0.70");
+        assertThat(fixed.rawDiscountRate()).isEqualByComparingTo("1.00");
         assertThat(fixed.reason()).doesNotContain("触到店主设定的最低折扣线");
 
         // MODEL：产物缺失回退 RULE → 同样受底线约束

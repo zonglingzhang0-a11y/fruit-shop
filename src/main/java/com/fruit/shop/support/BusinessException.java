@@ -30,4 +30,9 @@ public class BusinessException extends RuntimeException {
     public static BusinessException notFound(String message) {
         return new BusinessException(ApiResult.CODE_NOT_FOUND, message);
     }
+
+    /** 与已有数据冲突（例如同一业务流水号对应了不同的请求内容）。 */
+    public static BusinessException conflict(String message) {
+        return new BusinessException(ApiResult.CODE_CONFLICT, message);
+    }
 }

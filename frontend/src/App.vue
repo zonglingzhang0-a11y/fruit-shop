@@ -43,6 +43,9 @@ const standalone = computed(() => route.meta?.standalone === true)
           <el-menu-item index="/push">
             <span>推送消息</span>
           </el-menu-item>
+          <el-menu-item index="/sales">
+            <span>销售回流</span>
+          </el-menu-item>
           <el-menu-item index="/h5">
             <span>顾客端 H5 特价页 ↗</span>
           </el-menu-item>

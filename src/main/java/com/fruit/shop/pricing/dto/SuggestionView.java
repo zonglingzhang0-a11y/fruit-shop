@@ -36,5 +36,7 @@ public record SuggestionView(
         Integer adjustSeq,
         BigDecimal freshness,
         BigDecimal estimatedSellableDays,
-        BigDecimal expectedScrapQty) {
+        BigDecimal expectedScrapQty,
+        /** 实际给出价格的策略；与 strategy 不同说明发生了回退（例如请求 MODEL、实际 RULE）。 */
+        String effectiveStrategy) {
 }

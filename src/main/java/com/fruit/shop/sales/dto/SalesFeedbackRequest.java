@@ -3,6 +3,7 @@ package com.fruit.shop.sales.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -56,4 +57,13 @@ public class SalesFeedbackRequest {
      * 不传表示这笔没识别到会员，不参与推送转化统计。
      */
     private Long memberId;
+
+    /**
+     * 可选：业务流水号（幂等键，最长 64 字符），由收银端为每一笔销售/退货生成一次（例如 UUID）。
+     * 网络超时重试、页面重复点击时带同一个流水号，后端只记一次：不重复扣库存、不重复写统计，
+     * 直接返回首次的记录并标 {@code duplicate=true}。同一流水号对应不同的商品/批次/数量/单价会被拒绝（409）。
+     * 不传则保持原行为（每次调用都记一笔）。
+     */
+    @Size(max = 64, message = "requestNo 最长 64 个字符")
+    private String requestNo;
 }

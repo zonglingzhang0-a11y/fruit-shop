@@ -94,6 +94,16 @@ public class PushEffectService {
      * <p>由 {@code POST /api/sales/feedback} 在写入销售记录后自动触发；也可由
      * {@code POST /api/push/attribute} 手工重跑。
      */
+    /** 该笔销售已归因到的推送日志（没有则 null）；重复提交回放首笔结果时用。 */
+    public PushLog attributedLogOf(Long salesRecordId) {
+        if (salesRecordId == null) {
+            return null;
+        }
+        return logMapper.selectOne(Wrappers.<PushLog>lambdaQuery()
+                .eq(PushLog::getRelatedSaleId, salesRecordId)
+                .last("LIMIT 1"));
+    }
+
     @Transactional
     public AttributionResult attributeSale(SalesRecord sale) {
         if (sale == null || sale.getId() == null) {

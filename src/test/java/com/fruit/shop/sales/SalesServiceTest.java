@@ -221,6 +221,36 @@ class SalesServiceTest {
     }
 
     @Test
+    @DisplayName("效果看板：各策略的缺货率按各自的日统计平均，不是全部策略的总平均")
+    void effectStockoutRateIsPerStrategy() {
+        LocalDate day = LocalDate.of(2035, 5, 10);
+        insertStat(day, "RULE", "0.1000");
+        insertStat(day.plusDays(1), "RULE", "0.3000");
+        insertStat(day, "MODEL", "0.0500");
+
+        EffectResponse effect = salesService.effect(day, day.plusDays(1), null);
+
+        assertThat(effect.byStrategy()).extracting(s -> s.strategy() + "=" + s.stockoutRate().toPlainString())
+                .containsExactlyInAnyOrder("RULE=0.2000", "MODEL=0.0500");
+        // 总体缺货率仍是全部日统计行的平均：(0.1 + 0.3 + 0.05) / 3
+        assertThat(effect.stockoutRate()).isEqualByComparingTo("0.1500");
+    }
+
+    private void insertStat(LocalDate day, String strategy, String stockoutRate) {
+        StrategyDailyStat stat = new StrategyDailyStat();
+        stat.setBizDate(day);
+        stat.setStrategy(strategy);
+        stat.setSoldQty(new BigDecimal("10"));
+        stat.setScrapQty(BigDecimal.ONE);
+        stat.setRevenue(new BigDecimal("100"));
+        stat.setCost(new BigDecimal("60"));
+        stat.setGrossProfit(new BigDecimal("40"));
+        stat.setScrapRate(new BigDecimal("0.0909"));
+        stat.setStockoutRate(new BigDecimal(stockoutRate));
+        statMapper.insert(stat);
+    }
+
+    @Test
     @DisplayName("效果看板：区间内完全没有数据时返回 0 而不是报错（无数据也能启动）")
     void effectWithNoDataAtAllReturnsZeros() {
         EffectResponse effect = salesService.effect(LocalDate.of(1990, 1, 1), LocalDate.of(1990, 1, 7), null);

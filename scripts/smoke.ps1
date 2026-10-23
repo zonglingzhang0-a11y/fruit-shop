@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 <#
   smoke.ps1 - 端到端冒烟：启动后端（demo profile，H2 文件库 + 自动导入 data/seed），
-  逐个调用 12 个接口 + 1 个契约外补充接口，检查统一响应体，最后关闭进程。
+  逐个调用全部业务接口（12 个契约接口 + v2 / Issue #2 / #4 新增的接口，共 21 次调用），检查统一响应体，最后关闭进程。
 
   用法：
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
@@ -272,6 +272,21 @@ if ($onSaleList.Count -gt 0) {
   $o = $onSaleList[0]
   Info "      首条：$($o.itemName) 原价 $($o.originalPrice) → 店主定价 $($o.finalPrice)（$($o.discountLabel)）剩余 $($o.remainQty)"
 }
+
+# Issue #2 / #4 新增的只读接口
+if ($itemList.Count -gt 0) {
+  $firstItemId = $itemList[0].id
+  $inStock = Call-Api '19 GET  /api/batches/in-stock' 'GET' "/api/batches/in-stock?itemId=$firstItemId&bizDate=$today"
+  $inStockList = As-List $inStock
+  Info "    单品 #$firstItemId 有库存的在售批次 $($inStockList.Count) 个（第一行就是销售回流不选批次时自动扣的那批）"
+}
+$modelStatus = Call-Api '20 GET  /api/pricing/model-status' 'GET' "/api/pricing/model-status?bizDate=$today"
+if ($modelStatus) {
+  Info "    模型产物：可用=$($modelStatus.usable)；$($modelStatus.message)"
+}
+$pushTasks = Call-Api '21 GET  /api/push/tasks' 'GET' "/api/push/tasks?bizDate=$today"
+$pushTaskList = As-List $pushTasks
+Info "    当天推送计划 $($pushTaskList.Count) 个"
 
 # ---------------------------------------------------------------- 收尾
 Info '关闭后端进程'

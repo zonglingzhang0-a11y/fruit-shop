@@ -1,0 +1,11 @@
+# scripts/ 下数据分析、仿真、评测与模型导出脚本的依赖（固定版本，保证队友和 CI 复现出同样的结果）
+# 安装：python -m pip install -r requirements.txt   （Python 3.12+；作者机器为 3.14，CI 也用 3.14）
+# 升级某个包后请重跑 CI 里的 Python 自检（.github/workflows/ci.yml 的 python 任务）再提交。
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+matplotlib==3.11.2
+# 弹性回归的聚类稳健标准误；缺了会退化成 numpy 最小二乘（点估计相同，但没有标准误）
+statsmodels==0.15.0
+# scripts/prepare_raw_data.py 读原始 Excel 附件
+openpyxl==3.1.5

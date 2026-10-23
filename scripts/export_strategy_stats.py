@@ -19,8 +19,8 @@
   与主报告第 3 节的口径一致；看板另列损耗率，读者可自行判断报废的影响。
 
 用法：
-    & 'C:\\Python314\\python.exe' scripts/export_strategy_stats.py             # 20 种子采样 + 1 种子逐日，约 1.5 分钟
-    & 'C:\\Python314\\python.exe' scripts/export_strategy_stats.py --rate-seeds 3
+    python scripts/export_strategy_stats.py             # 20 种子采样 + 1 种子逐日，约 1.5 分钟
+    python scripts/export_strategy_stats.py --rate-seeds 3
 """
 from __future__ import annotations
 

@@ -75,18 +75,6 @@ public final class PricingPolicy {
         return best;
     }
 
-    /** 再降一档（存量压力大时"再多让一点利"）；已经是最低档则维持 0.50。 */
-    public static BigDecimal oneStepLower(BigDecimal rate) {
-        BigDecimal current = toCandidate(rate);
-        BigDecimal best = MIN_DISCOUNT;
-        for (BigDecimal candidate : CANDIDATE_DISCOUNTS) {
-            if (candidate.compareTo(current) < 0 && candidate.compareTo(best) > 0) {
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
     /**
      * 最低折扣线的留痕结果（docs/07 第 1 节 B）。
      *

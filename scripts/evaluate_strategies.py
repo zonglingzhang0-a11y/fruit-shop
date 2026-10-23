@@ -36,13 +36,13 @@
 运行
 ----
     # 真实评测（需要 scripts/simulator.py 提供 ShopSimulator）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --seeds 20
+    python scripts/evaluate_strategies.py --seeds 20
 
     # 快速冒烟（3 个种子）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --quick
+    python scripts/evaluate_strategies.py --quick
 
     # 自检：用内置玩具环境验证整条流水线（结果写到临时目录，绝不污染 release/）
-    C:\\Python314\\python.exe scripts/evaluate_strategies.py --selftest
+    python scripts/evaluate_strategies.py --selftest
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ from pricing_model import (  # noqa: E402
     _assert_no_truth_access,
     make_model_pricing_fn,
 )
-from pricing_rule import DISCOUNT_GRID, make_rule_pricing_fn  # noqa: E402
+from pricing_rule import DISCOUNT_GRID, FIXED_RATE, make_rule_pricing_fn  # noqa: E402
 
 STRATEGIES = ("FIXED", "RULE", "MODEL")
 
@@ -154,11 +154,11 @@ def _hash_frame(df: pd.DataFrame) -> str:
 
 
 def make_fixed_pricing_fn():
-    """基线 1：成本加成固定价 —— 永远原价，不打折。"""
+    """基线 1：成本加成固定价 —— 永远原价，不打折（与后端 FixedPricePricingStrategy 同口径，见 pricing_rule.FIXED_RATE）。"""
 
     def _fn(biz_date, day_index, state):
         batches = _records(_get(state, "batches"))
-        return {str(b.get("item_code")): 1.00 for b in batches if b.get("item_code")}
+        return {str(b.get("item_code")): FIXED_RATE for b in batches if b.get("item_code")}
 
     _fn.strategy_name = "FIXED"  # type: ignore[attr-defined]
     return _fn
@@ -1515,7 +1515,7 @@ def main() -> int:
     plt, cn = setup_matplotlib()
     made = _figs_all(per_seed, daily, args.figs, cn)
 
-    command = " ".join([r"C:\Python314\python.exe", "scripts/evaluate_strategies.py"] +
+    command = " ".join(["python", "scripts/evaluate_strategies.py"] +
                        [f"--seeds {args.seeds}", f"--days {args.days}", f"--history-days {args.history_days}",
                         f"--seed-base {args.seed_base}", f"--seed-step {args.seed_step}",
                         f"--min-discount-rate {args.min_discount_rate}"] +
