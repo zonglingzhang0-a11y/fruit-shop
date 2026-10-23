@@ -34,12 +34,6 @@ public class AppProperties {
         /** 临期阈值（天）：days_left <= 该值进入临期清单。 */
         private int nearExpiryDays = 2;
 
-        /** FIXED 策略的固定折扣档（会向下对齐到候选档）。 */
-        private BigDecimal fixedDiscount = new BigDecimal("0.70");
-
-        /** RULE 策略的"存量压力"阈值：现存可售量大于该值时再多降一档。 */
-        private BigDecimal pressureQtyThreshold = new BigDecimal("20");
-
         /** MODEL 策略读取的模型产物（Python 侧生成）；文件不存在时自动回退 RULE。 */
         private String modelFile = "./data/seed/pricing_model.json";
 

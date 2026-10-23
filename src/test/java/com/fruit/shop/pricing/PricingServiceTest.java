@@ -1,7 +1,7 @@
 package com.fruit.shop.pricing;
 
+import com.fruit.shop.batch.domain.FruitBatch;
 import com.fruit.shop.batch.mapper.FruitBatchMapper;
-import com.fruit.shop.config.AppProperties;
 import com.fruit.shop.item.domain.FruitItem;
 import com.fruit.shop.item.mapper.FruitItemMapper;
 import com.fruit.shop.pricing.domain.PricingDecision;
@@ -40,9 +40,6 @@ class PricingServiceTest {
     private PricingService pricingService;
 
     @Autowired
-    private AppProperties props;
-
-    @Autowired
     private FruitItemMapper itemMapper;
 
     @Autowired
@@ -73,14 +70,19 @@ class PricingServiceTest {
         assertThat(mine).hasSize(3);
         Map<Integer, SuggestionView> byDaysLeft = mine.stream()
                 .collect(Collectors.toMap(SuggestionView::daysLeft, Function.identity()));
-        // days_left=0 的规则档是 5 折，但被最低折扣线 0.60 拦住（docs/07 第 1 节 B）→ 挂 6 折并留痕
+        // 三批都一份没卖（库存压力 3 分），保质期 8 天。
+        // days_left=0：紧迫度 4 + 压力 3 + 剩余寿命 0% 加 1 = 8 分 → 5 折，被最低折扣线 0.60 拦住（docs/07 第 1 节 B）→ 挂 6 折并留痕
         assertThat(byDaysLeft.get(0).discountRate()).isEqualByComparingTo("0.60");
         assertThat(byDaysLeft.get(0).priceFloorHit()).isTrue();
         assertThat(byDaysLeft.get(0).rawDiscountRate()).isEqualByComparingTo("0.50");
         assertThat(byDaysLeft.get(0).reason()).contains("最低折扣线");
+        // days_left=1：3 + 3 + 剩余寿命 1/8 ≤ 20% 加 1 = 7 分 → 5 折，同样被底线抬到 6 折
         assertThat(byDaysLeft.get(1).discountRate()).isEqualByComparingTo("0.60");
-        assertThat(byDaysLeft.get(1).priceFloorHit()).isFalse();
+        assertThat(byDaysLeft.get(1).priceFloorHit()).isTrue();
+        assertThat(byDaysLeft.get(1).rawDiscountRate()).isEqualByComparingTo("0.50");
+        // days_left=2：2 + 3 = 5 分（剩余寿命 25% 不加分）→ 7 折
         assertThat(byDaysLeft.get(2).discountRate()).isEqualByComparingTo("0.70");
+        assertThat(byDaysLeft.get(2).priceFloorHit()).isFalse();
 
         for (SuggestionView view : mine) {
             assertThat(PricingPolicy.isCandidate(view.discountRate()))
@@ -101,37 +103,39 @@ class PricingServiceTest {
     }
 
     @Test
-    @DisplayName("RULE 存量压力：现存超过阈值时再降一档")
-    void stockPressureLowersOneStep() {
+    @DisplayName("RULE 库存压力看还剩几成：同样剩 25 份，一份没卖的 7 折，已卖掉七成五的 9 折")
+    void stockPressureFollowsRemainingShare() {
         LocalDate bizDate = LocalDate.of(2035, 2, 11);
-        FruitItem item = ShopFixtures.item(itemMapper, "压力测试果", "测试压力类", "3.00", "10.00", 8);
-        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "30", "3.00"); // days_left=2，现存 30 > 阈值 20
+        FruitItem untouched = ShopFixtures.item(itemMapper, "压力测试果", "测试压力类", "3.00", "10.00", 8);
+        ShopFixtures.batch(batchMapper, untouched.getId(), bizDate.minusDays(6), 8, "25", "3.00"); // days_left=2，25/25
+        FruitItem selling = ShopFixtures.item(itemMapper, "卖动测试果", "测试压力类", "3.00", "10.00", 8);
+        FruitBatch sold = ShopFixtures.batch(batchMapper, selling.getId(), bizDate.minusDays(6), 8, "100", "3.00");
+        sold.setRemainQty(new BigDecimal("25")); // 到货 100、已卖 75
+        batchMapper.updateById(sold);
 
         SuggestionGenerateRequest request = new SuggestionGenerateRequest();
         request.setBizDate(bizDate);
         request.setStrategy("RULE");
         pricingService.generate(request);
 
-        List<SuggestionView> mine = mine(bizDate, "RULE", item.getId());
-        assertThat(mine).hasSize(1);
-        assertThat(mine.get(0).daysLeft()).isEqualTo(2);
-        assertThat(mine.get(0).discountRate()).isEqualByComparingTo("0.60");
-        assertThat(mine.get(0).reason()).contains("存量偏大");
-
-        // 低于阈值时回到 7 折（同一策略、同一天，换一个商品对照）
-        FruitItem small = ShopFixtures.item(itemMapper, "小量测试果", "测试压力类", "3.00", "10.00", 8);
-        ShopFixtures.batch(batchMapper, small.getId(), bizDate.minusDays(6), 8, "5", "3.00");
-        pricingService.generate(request);
-        List<SuggestionView> smallRows = mine(bizDate, "RULE", small.getId());
-        assertThat(smallRows).hasSize(1);
-        assertThat(smallRows.get(0).discountRate()).isEqualByComparingTo("0.70");
+        // 紧迫度 2 + 压力 3（还剩 100%）= 5 分 → 7 折
+        List<SuggestionView> full = mine(bizDate, "RULE", untouched.getId());
+        assertThat(full).hasSize(1);
+        assertThat(full.get(0).daysLeft()).isEqualTo(2);
+        assertThat(full.get(0).discountRate()).isEqualByComparingTo("0.70");
+        assertThat(full.get(0).reason()).contains("库存压力 3 分");
+        // 紧迫度 2 + 压力 0（还剩 25%）= 2 分 → 9 折
+        List<SuggestionView> rest = mine(bizDate, "RULE", selling.getId());
+        assertThat(rest).hasSize(1);
+        assertThat(rest.get(0).discountRate()).isEqualByComparingTo("0.90");
+        assertThat(rest.get(0).reason()).contains("还剩 25%").contains("库存压力 0 分");
     }
 
     @Test
-    @DisplayName("FIXED：不看剩余天数，统一使用配置的固定折扣档（仍然不涨价）")
-    void fixedStrategyUsesConfiguredDiscount() {
+    @DisplayName("FIXED：一律原价、不打折（与评测里的固定价基线同口径）")
+    void fixedStrategyKeepsOriginalPrice() {
         LocalDate bizDate = LocalDate.of(2035, 2, 12);
-        FruitItem item = ShopFixtures.item(itemMapper, "固定折扣果", "测试固定类", "3.00", "10.00", 8);
+        FruitItem item = ShopFixtures.item(itemMapper, "固定价测试果", "测试固定类", "3.00", "10.00", 8);
         ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(8), 8, "5", "3.00"); // days_left = 0
         ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "5", "3.00"); // days_left = 2
 
@@ -140,13 +144,13 @@ class PricingServiceTest {
         request.setStrategy("FIXED");
         pricingService.generate(request);
 
-        BigDecimal expected = PricingPolicy.toCandidate(props.getPricing().getFixedDiscount());
         List<SuggestionView> mine = mine(bizDate, "FIXED", item.getId());
         assertThat(mine).hasSize(2);
         assertThat(mine).allSatisfy(view -> {
-            assertThat(view.discountRate()).isEqualByComparingTo(expected);
-            assertThat(view.suggestedPrice()).isLessThanOrEqualTo(view.originalPrice());
-            assertThat(view.reason()).contains("基线");
+            assertThat(view.discountRate()).isEqualByComparingTo("1.00");
+            assertThat(view.suggestedPrice()).isEqualByComparingTo(view.originalPrice());
+            assertThat(view.priceFloorHit()).isFalse();
+            assertThat(view.reason()).contains("基线").contains("原价");
         });
     }
 

@@ -72,7 +72,7 @@ from pricing_model import (  # noqa: E402
     _assert_no_truth_access,
     make_model_pricing_fn,
 )
-from pricing_rule import DISCOUNT_GRID, make_rule_pricing_fn  # noqa: E402
+from pricing_rule import DISCOUNT_GRID, FIXED_RATE, make_rule_pricing_fn  # noqa: E402
 
 STRATEGIES = ("FIXED", "RULE", "MODEL")
 
@@ -154,11 +154,11 @@ def _hash_frame(df: pd.DataFrame) -> str:
 
 
 def make_fixed_pricing_fn():
-    """基线 1：成本加成固定价 —— 永远原价，不打折。"""
+    """基线 1：成本加成固定价 —— 永远原价，不打折（与后端 FixedPricePricingStrategy 同口径，见 pricing_rule.FIXED_RATE）。"""
 
     def _fn(biz_date, day_index, state):
         batches = _records(_get(state, "batches"))
-        return {str(b.get("item_code")): 1.00 for b in batches if b.get("item_code")}
+        return {str(b.get("item_code")): FIXED_RATE for b in batches if b.get("item_code")}
 
     _fn.strategy_name = "FIXED"  # type: ignore[attr-defined]
     return _fn

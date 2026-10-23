@@ -817,7 +817,7 @@ public class PushService {
         FruitBatch batch = onSale.isEmpty() ? null : onSale.get(0);
         Integer daysLeft = batch == null ? null : BatchService.daysLeft(bizDate, batch.getExpireDate());
         PricingPolicy.FloorClamp clamp = PricingPolicy.applyFloor(
-                resolveDiscount(requestedRate, daysLeft), props.minDiscountRate());
+                resolveDiscount(requestedRate, batch, item, daysLeft), props.minDiscountRate());
         BigDecimal rate = clamp.rate();
         String note = "该单品 " + bizDate + " 还没有店主确认价，文案按" + PricingPolicy.discountLabel(rate)
                 + "试算（未经店主确认，建议先在定价页确认价格再发送）";
@@ -842,15 +842,15 @@ public class PushService {
         return suggestion == null ? null : suggestion.getId();
     }
 
-    /** 折扣：显式传了就用（并对齐候选档），否则按剩余天数用 RULE 档位，再退到固定档。 */
-    private BigDecimal resolveDiscount(BigDecimal requested, Integer daysLeft) {
+    /** 折扣：显式传了就用（并对齐候选档），否则对最急的在售批次跑一遍 RULE 打分（与定价建议同口径）；没有在售批次就按原价。 */
+    private BigDecimal resolveDiscount(BigDecimal requested, FruitBatch batch, FruitItem item, Integer daysLeft) {
         if (requested != null) {
             return PricingPolicy.toCandidate(requested);
         }
-        if (daysLeft != null) {
-            return RuleBasedPricingStrategy.baseDiscount(daysLeft);
+        if (batch != null && daysLeft != null) {
+            return RuleBasedPricingStrategy.score(batch, item, daysLeft).rate();
         }
-        return PricingPolicy.toCandidate(props.getPricing().getFixedDiscount());
+        return PricingPolicy.MAX_DISCOUNT;
     }
 
     /** 该业务日该单品最近一条定价建议（只用于把"建议 → 计划 → 日志 → 成交"串成一条链）。 */

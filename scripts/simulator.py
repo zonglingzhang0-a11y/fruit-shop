@@ -1602,7 +1602,10 @@ def _rule_rate(days_left: int, near_expiry_days: int, batch: Batch, velocity: fl
 
 def default_rule_decision(biz_date: date, day_index: int,
                           state: Mapping[str, Any]) -> dict[str, float]:
-    """内置规则版（RULE）参考实现 —— 供定价侧在历史窗口重放时使用。
+    """仿真器内置的"店里过去怎么定价"——只在生成演示用种子数据时使用（本文件主程序与数据核对）。
+
+    它**不是**评测里的 RULE 基线：评测的三个策略和历史窗口都用 ``scripts/pricing_rule.py``，
+    后端 RULE 也与那一份一致（docs/03 §2.1）。``shop_pricing_suggestion.csv`` 里 strategy 写作 RULE 是历史标签。
 
     返回 ``{batch_no: discount_rate}``（批次粒度；协议同样接受 item_code 键）。
     只用 state 里的可观测信息（days_left / remain_qty / history）。

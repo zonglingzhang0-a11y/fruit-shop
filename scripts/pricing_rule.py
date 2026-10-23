@@ -35,14 +35,25 @@
 如果规则版也去估计弹性、也算期望收益，那它就不再是"店主经验"基线，
 对照实验就变成了"我的模型 A vs 我的模型 B"。**故意保持它朴素**是方法论要求。
 
+与系统同口径（契约测试锁定）
+--------------------------
+后端 `RuleBasedPricingStrategy`（RULE）和 `FixedPricePricingStrategy`（FIXED）照本文件实现。
+`--export-contract` 把本文件对一张输入网格的输出写进
+`src/test/resources/contract/pricing_rule_cases.json`，Java 测试 `PricingRuleContractTest` 逐条比对；
+`--selftest` 也会重算一遍并与该夹具比对。所以改了这里的规则而不重新导出、或者导出了而 Java 不跟，CI 都会失败。
+
 运行自检：
     python scripts/pricing_rule.py --selftest
+重新导出契约夹具（改了规则之后）：
+    python scripts/pricing_rule.py --export-contract
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
 # ---------------------------------------------------------------------------
@@ -51,9 +62,6 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 #: 候选折扣档（相对原价），算法只能在其中挑选
 DISCOUNT_GRID: Sequence[float] = (1.00, 0.90, 0.80, 0.70, 0.60, 0.50)
-
-#: 临期阈值（天）：与 app.pricing.near-expiry-days 默认值一致
-NEAR_EXPIRY_DAYS = 2
 
 #: 库存压力只在"剩余天数 <= PRESSURE_WINDOW_DAYS"时才计入，
 #: 否则刚到货的新批次也会被打折。
@@ -74,6 +82,13 @@ SCORE_TO_RATE: Dict[int, float] = {
 
 #: 临期兜底：还剩 1 天及以内且仍有货，至少打到这个档
 LAST_CHANCE_RATE = 0.70
+
+#: 基线 1（FIXED）的折扣：永远原价。evaluate_strategies.make_fixed_pricing_fn 与后端 FixedPricePricingStrategy 都用它
+FIXED_RATE = 1.00
+
+#: 双语言契约夹具（Java 测试 PricingRuleContractTest 读取）
+CONTRACT_PATH = (Path(__file__).resolve().parent.parent
+                 / "src" / "test" / "resources" / "contract" / "pricing_rule_cases.json")
 
 
 @dataclass(frozen=True)
@@ -203,7 +218,9 @@ def rule_discount(
         floor = float(min_discount_rate)
         if rate < floor:
             floor_note = f"；本可降到{rate * 10:.0f}折，已触到店主设定的最低折扣线{floor * 10:.0f}折"
-            rate = snap_to_grid(floor, DISCOUNT_GRID) if floor in DISCOUNT_GRID else floor
+            # 抬到"不低于底线的最小候选档"：底线不在档位上（如 0.65）时也只挂候选档（0.70），
+            # 与后端 PricingPolicy.applyFloor、export_model_suggestions 的 allowed 档位同口径
+            rate = min(g for g in DISCOUNT_GRID if g >= floor - 1e-9)
 
     # --- 人话理由：店主一眼能看懂，后端 pricing_suggestion.reason 直接落库 ---
     init_txt = f"{init_qty:.0f}" if init_qty else "?"
@@ -223,10 +240,13 @@ def rule_discount(
 
 def rule_decide_day(
     batches: Iterable[dict],
-    near_expiry_days: int = NEAR_EXPIRY_DAYS,
     min_discount_rate: Optional[float] = None,
 ) -> Dict[str, float]:
     """一天一次决策：对当天所有在售批次出价，返回 {item_code: discount_rate}。
+
+    **每个在售批次都打分，不先按临期阈值（2 天）过滤**：剩 3 天、库存压手的批次照样会被打折，
+    剩余天数多的批次由打分和"刚到货"护栏给出原价。后端目前只对临期清单（剩余 ≤ 2 天）里的批次出建议，
+    这一处口径差异见 docs/03 §2.1。
 
     单一货架价约束
     --------------
@@ -287,7 +307,6 @@ def rule_decisions_detailed(
 
 
 def make_rule_pricing_fn(
-    near_expiry_days: int = NEAR_EXPIRY_DAYS,
     min_discount_rate: Optional[float] = None,
 ):
     """包装成 `ShopSimulator.step_day(pricing_fn)` 需要的签名。
@@ -301,11 +320,7 @@ def make_rule_pricing_fn(
     def _fn(biz_date, day_index, state):  # noqa: ARG001 - 签名由 sim 契约冻结
         batches = state.get("batches")
         rows = _to_records(batches)
-        return rule_decide_day(
-            rows,
-            near_expiry_days=near_expiry_days,
-            min_discount_rate=min_discount_rate,
-        )
+        return rule_decide_day(rows, min_discount_rate=min_discount_rate)
 
     _fn.strategy_name = "RULE"  # type: ignore[attr-defined]
     _fn.min_discount_rate = min_discount_rate  # type: ignore[attr-defined]
@@ -349,6 +364,59 @@ def _days_left_from_dates(arrive_date, expire_date) -> int:
         return (_p(expire_date) - _p(arrive_date)).days
     except Exception:
         return 0
+
+
+# ---------------------------------------------------------------------------
+# 双语言契约：后端必须对同一张输入网格给出与本文件完全相同的折扣
+# ---------------------------------------------------------------------------
+
+#: 网格刻意压在每条规则的边界上：剩余天数跨过 0/1/3/保质期，剩余比例落在 0.30/0.50/0.70 两侧，
+#: 剩余寿命比例恰好等于 0.20，拿不到到货量（None / 0）时按 20 份满仓折算
+CONTRACT_DAYS_LEFT = (-1, 0, 1, 2, 3, 4, 5, 6, 8, 12)
+CONTRACT_QTY = (  # (现存, 到货量)
+    (0, 40), (8, 40), (11.9, 40), (12, 40), (19.9, 40), (20, 40), (27.9, 40), (28, 40), (40, 40), (45, 40),
+    (3, 10), (7, 10),
+    (5, None), (6, None), (10, None), (14, None), (25, None), (6, 0),
+)
+CONTRACT_SHELF_LIFE = (None, 3, 5, 7, 10, 20)
+CONTRACT_FLOORS = (0.60, 0.65)
+
+
+def contract_cases() -> dict:
+    """对契约网格逐条跑 rule_discount，返回要写进夹具的内容。
+
+    每行：[剩余天数, 现存, 到货量, 保质期, 不设底线的折扣, 底线 0.60 时的折扣, 底线 0.65 时的折扣]。
+    """
+    rows = []
+    for days_left in CONTRACT_DAYS_LEFT:
+        for remain, init in CONTRACT_QTY:
+            for life in CONTRACT_SHELF_LIFE:
+                row = [days_left, remain, init, life, rule_discount(days_left, remain, init, life).discount_rate]
+                row += [rule_discount(days_left, remain, init, life, min_discount_rate=f).discount_rate
+                        for f in CONTRACT_FLOORS]
+                rows.append(row)
+    return {
+        "source": "scripts/pricing_rule.py（python scripts/pricing_rule.py --export-contract 生成，勿手改）",
+        "fixed_rate": FIXED_RATE,
+        "floors": list(CONTRACT_FLOORS),
+        "columns": ["days_left", "remain_qty", "init_qty", "shelf_life_days", "rate"]
+                   + [f"rate_floor_{f:.2f}" for f in CONTRACT_FLOORS],
+        "cases": rows,
+    }
+
+
+def _contract_text(data: dict) -> str:
+    """一行一个用例，diff 好读。"""
+    head = {k: v for k, v in data.items() if k != "cases"}
+    body = ",\n".join("    " + json.dumps(r, ensure_ascii=False) for r in data["cases"])
+    text = json.dumps(head, ensure_ascii=False, indent=2)
+    return text[:-2] + ',\n  "cases": [\n' + body + "\n  ]\n}\n"
+
+
+def export_contract(path: Path = CONTRACT_PATH) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_contract_text(contract_cases()), encoding="utf-8", newline="\n")
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +476,15 @@ def _selftest() -> int:
     ok &= same
     print(f"[{'OK ' if same else 'FAIL'}] 同单品多批次取最深折扣（先清最急的货）")
 
+    # 双语言契约夹具必须是最新的（否则后端比对的是旧规则）
+    if CONTRACT_PATH.exists():
+        fresh = CONTRACT_PATH.read_text(encoding="utf-8") == _contract_text(contract_cases())
+        msg = "" if fresh else "（改了规则后请运行 python scripts/pricing_rule.py --export-contract，并让后端测试跟上）"
+    else:
+        fresh, msg = False, f"（缺少 {CONTRACT_PATH.name}，请运行 --export-contract）"
+    ok &= fresh
+    print(f"[{'OK ' if fresh else 'FAIL'}] 契约夹具与本文件规则一致{msg}")
+
     print("=== 自检结果:", "全部通过" if ok else "存在失败项", "===")
     return 0 if ok else 1
 
@@ -415,7 +492,12 @@ def _selftest() -> int:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="规则折扣基线（RULE）")
     ap.add_argument("--selftest", action="store_true", help="跑内置场景自检")
+    ap.add_argument("--export-contract", action="store_true",
+                    help="重新导出后端契约测试用的夹具 src/test/resources/contract/pricing_rule_cases.json")
     args = ap.parse_args()
+    if args.export_contract:
+        print(f"[contract] → {export_contract()}")
+        raise SystemExit(0)
     if args.selftest:
         raise SystemExit(_selftest())
     ap.print_help()

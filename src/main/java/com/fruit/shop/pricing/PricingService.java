@@ -228,6 +228,12 @@ public class PricingService {
                         .append(PricingPolicy.discountLabel(rawRate))
                         .append("，被底线拦住");
             }
+            // 按最终挂价（已套底线）判断，三种策略同一口径；策略自己的理由里不写这句，避免与底线抬价后的价格对不上
+            if (batch.getCostPrice() != null && price.compareTo(batch.getCostPrice()) < 0) {
+                fullReason.append("；建议价 ¥").append(PricingPolicy.money(price))
+                        .append(" 已低于批次成本 ¥").append(PricingPolicy.money(batch.getCostPrice()))
+                        .append("，属清仓让利");
+            }
             if (adjustSeq > 1) {
                 fullReason.append("；本批次当天第 ").append(adjustSeq).append(" 次调价（上限 ")
                         .append(maxAdjust).append(" 次）");

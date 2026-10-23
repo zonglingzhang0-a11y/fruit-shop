@@ -102,9 +102,7 @@ public class ModelPricingStrategy implements PricingStrategy {
         if (row.reason() != null && !row.reason().isBlank()) {
             reason.append("；").append(row.reason());
         }
-        if (price.compareTo(context.costPrice()) < 0) {
-            reason.append("；已低于批次成本 ¥").append(PricingPolicy.money(context.costPrice())).append("，属清仓让利");
-        }
+        // "是否低于成本"由 PricingService 按最终挂价统一追加
         return new PricingProposal(rate, expectedQty, PricingPolicy.reason(reason.toString()), code(),
                 row.rawDiscountRate());
     }
