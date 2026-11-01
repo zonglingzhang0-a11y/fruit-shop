@@ -37,8 +37,9 @@
 <rect x="870.0" y="286.0" width="140.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
 <line x1="870.0" y1="310.0" x2="1010.0" y2="310.0" stroke="#303133" stroke-width="1.2"/>
 <text x="940.0" y="303.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P3</text>
-<text x="940.0" y="337.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">定价建议生成</text>
-<text x="940.0" y="355.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">pricing · generate</text>
+<text x="940.0" y="331.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">定价建议生成</text>
+<text x="940.0" y="348.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">pricing · generate</text>
+<text x="940.0" y="361.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">每单品一条建议</text>
 <rect x="1080.0" y="290.0" width="120.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
 <line x1="1080.0" y1="290.0" x2="1200.0" y2="290.0" stroke="#303133" stroke-width="1.6"/>
 <line x1="1080.0" y1="324.0" x2="1200.0" y2="324.0" stroke="#303133" stroke-width="1.6"/>
@@ -129,7 +130,7 @@
 <polyline points="710.0,230.0 710.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
 <text x="716.0" y="262.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">近7天销量</text>
 <polyline points="720.0,340.0 870.0,340.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
-<text x="795.0" y="334.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期批次及指标</text>
+<text x="795.0" y="334.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">在售批次及临期指标</text>
 <polyline points="60.0,291.0 60.0,128.0 520.0,128.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
 <text x="290.0" y="122.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">单品档案</text>
 <polyline points="560.0,196.0 560.0,160.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
