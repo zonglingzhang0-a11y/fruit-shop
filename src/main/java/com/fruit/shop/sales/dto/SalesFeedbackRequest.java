@@ -26,7 +26,7 @@ public class SalesFeedbackRequest {
     /** 商品 id；与 batchId 至少传一个。 */
     private Long itemId;
 
-    /** 批次 id；不传则按 FIFO 自动挑该商品最早到期的在售批次。 */
+    /** 批次 id；不传则按 FIFO 自动挑该商品最早到期的在售批次。退货必须传（回补到原批次），否则 400。 */
     private Long batchId;
 
     /** 销售数量；负数表示退货。 */

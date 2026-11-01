@@ -142,6 +142,11 @@ public class SalesService {
             throw BusinessException.badRequest("quantity 不能为 0（按两位小数计）");
         }
         boolean isReturn = Boolean.TRUE.equals(request.getIsReturn()) || quantity.compareTo(BigDecimal.ZERO) < 0;
+        // 退货必须回补到原批次：不指定时下面会按先进先出挑一个在售批次，退回的货就记到别的批次上，台账对不上。
+        // 前端也拦了这一条，这里再拦一次，直接调接口（POS 对接、脚本）也绕不过去。
+        if (isReturn && request.getBatchId() == null) {
+            throw BusinessException.badRequest("退货必须指定原批次 batchId（货要回补到卖出的那一批，否则库存台账对不上）");
+        }
         BigDecimal requested = quantity.abs();
         BigDecimal unitPrice = PricingPolicy.round2(request.getUnitPrice());
 
