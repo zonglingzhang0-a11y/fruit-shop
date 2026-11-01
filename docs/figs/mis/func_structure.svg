@@ -1,0 +1,353 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','WenQuanYi Zen Hei',sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker><marker id="arrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker></defs><rect width="1600" height="900" fill="#fff"/><text x="32.0" y="42.0" font-size="24" fill="#303133" text-anchor="start" font-weight="600">功能结构图</text>
+<text x="32.0" y="70.0" font-size="14" fill="#606266" text-anchor="start" font-weight="400">按代码实际实现整理：8 个子系统、35 个功能模块；系统只给建议，不自动改价、不自动发送</text>
+<text x="1568.0" y="70.0" font-size="13" fill="#909399" text-anchor="end" font-weight="400">依据：后端各 Controller 与定时任务、前端路由与菜单、scripts/ 离线脚本</text>
+<rect x="610.0" y="116.0" width="380.0" height="60.0" rx="4" fill="#eef4fd" stroke="#303133" stroke-width="2"/>
+<text x="800.0" y="153.7" font-size="22" fill="#303133" text-anchor="middle" font-weight="600">临期果品定价与推送工作台</text>
+<line x1="800.0" y1="176.0" x2="800.0" y2="222.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="129.0" y1="222.0" x2="129.0" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="38.0" y="258.0" width="182.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="129.0" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">批次与临期管理</text>
+<line x1="129.0" y1="322.0" x2="129.0" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="49.0" y1="364.0" x2="209.0" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="49.0" y1="364.0" x2="49.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="32.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="49.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">商</text>
+<text x="49.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">品</text>
+<text x="49.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">档</text>
+<text x="49.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">案</text>
+<text x="49.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">维</text>
+<text x="49.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">护</text>
+<line x1="89.0" y1="364.0" x2="89.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="72.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="89.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">到</text>
+<text x="89.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">货</text>
+<text x="89.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">批</text>
+<text x="89.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">次</text>
+<text x="89.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">登</text>
+<text x="89.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">记</text>
+<line x1="129.0" y1="364.0" x2="129.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="112.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="129.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">临</text>
+<text x="129.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">期</text>
+<text x="129.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">清</text>
+<text x="129.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">单</text>
+<text x="129.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">查</text>
+<text x="129.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">询</text>
+<line x1="169.0" y1="364.0" x2="169.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="152.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="169.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">风</text>
+<text x="169.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">险</text>
+<text x="169.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">批</text>
+<text x="169.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">次</text>
+<text x="169.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">识</text>
+<text x="169.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">别</text>
+<line x1="209.0" y1="364.0" x2="209.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="192.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="209.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">临</text>
+<text x="209.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">期</text>
+<text x="209.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">定</text>
+<text x="209.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">时</text>
+<text x="209.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">扫</text>
+<text x="209.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">描</text>
+<text x="129.0" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：临期清单</text>
+<line x1="349.3" y1="222.0" x2="349.3" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="258.3" y="258.0" width="182.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="349.3" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">定价决策支持</text>
+<line x1="349.3" y1="322.0" x2="349.3" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="269.3" y1="364.0" x2="429.3" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="269.3" y1="364.0" x2="269.3" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="252.3" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="269.3" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">定</text>
+<text x="269.3" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">价</text>
+<text x="269.3" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">建</text>
+<text x="269.3" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">议</text>
+<text x="269.3" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">生</text>
+<text x="269.3" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">成</text>
+<line x1="309.3" y1="364.0" x2="309.3" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="292.3" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="309.3" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">建</text>
+<text x="309.3" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">议</text>
+<text x="309.3" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">查</text>
+<text x="309.3" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">询</text>
+<text x="309.3" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">展</text>
+<text x="309.3" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">示</text>
+<line x1="349.3" y1="364.0" x2="349.3" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="332.3" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="349.3" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">店</text>
+<text x="349.3" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">主</text>
+<text x="349.3" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">确</text>
+<text x="349.3" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">认</text>
+<text x="349.3" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">改</text>
+<text x="349.3" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">价</text>
+<line x1="389.3" y1="364.0" x2="389.3" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="372.3" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="389.3" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">模</text>
+<text x="389.3" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">型</text>
+<text x="389.3" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">状</text>
+<text x="389.3" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">态</text>
+<text x="389.3" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">检</text>
+<text x="389.3" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">查</text>
+<line x1="429.3" y1="364.0" x2="429.3" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="412.3" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="429.3" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">模</text>
+<text x="429.3" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">型</text>
+<text x="429.3" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">输</text>
+<text x="429.3" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">入</text>
+<text x="429.3" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">导</text>
+<text x="429.3" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">出</text>
+<text x="349.3" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：定价建议</text>
+<line x1="549.6" y1="222.0" x2="549.6" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="478.6" y="258.0" width="142.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="549.6" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">客流分析</text>
+<line x1="549.6" y1="322.0" x2="549.6" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="489.6" y1="364.0" x2="609.6" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="489.6" y1="364.0" x2="489.6" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="472.6" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="489.6" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">时</text>
+<text x="489.6" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">段</text>
+<text x="489.6" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">客</text>
+<text x="489.6" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">流</text>
+<text x="489.6" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">统</text>
+<text x="489.6" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">计</text>
+<line x1="529.6" y1="364.0" x2="529.6" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="512.6" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="529.6" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">高</text>
+<text x="529.6" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">峰</text>
+<text x="529.6" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">时</text>
+<text x="529.6" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">段</text>
+<text x="529.6" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">识</text>
+<text x="529.6" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">别</text>
+<line x1="569.6" y1="364.0" x2="569.6" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="552.6" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="569.6" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">周</text>
+<text x="569.6" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">内</text>
+<text x="569.6" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">客</text>
+<text x="569.6" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">流</text>
+<text x="569.6" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">规</text>
+<text x="569.6" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">律</text>
+<line x1="609.6" y1="364.0" x2="609.6" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="592.6" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="609.6" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">客</text>
+<text x="609.6" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">流</text>
+<text x="609.6" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">规</text>
+<text x="609.6" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">律</text>
+<text x="609.6" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">重</text>
+<text x="609.6" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">算</text>
+<text x="549.6" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：客流时段</text>
+<line x1="749.9" y1="222.0" x2="749.9" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="658.9" y="258.0" width="182.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="749.9" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">精准推送</text>
+<line x1="749.9" y1="322.0" x2="749.9" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="669.9" y1="364.0" x2="829.9" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="669.9" y1="364.0" x2="669.9" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="652.9" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="669.9" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">推</text>
+<text x="669.9" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">送</text>
+<text x="669.9" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">计</text>
+<text x="669.9" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">划</text>
+<text x="669.9" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">预</text>
+<text x="669.9" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">览</text>
+<line x1="709.9" y1="364.0" x2="709.9" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="692.9" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="709.9" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">推</text>
+<text x="709.9" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">送</text>
+<text x="709.9" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">定</text>
+<text x="709.9" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">向</text>
+<text x="709.9" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">发</text>
+<text x="709.9" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">送</text>
+<line x1="749.9" y1="364.0" x2="749.9" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="732.9" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="749.9" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">群</text>
+<text x="749.9" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">发</text>
+<text x="749.9" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">文</text>
+<text x="749.9" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">案</text>
+<text x="749.9" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">复</text>
+<text x="749.9" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">制</text>
+<line x1="789.9" y1="364.0" x2="789.9" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="772.9" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="789.9" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">推</text>
+<text x="789.9" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">送</text>
+<text x="789.9" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">效</text>
+<text x="789.9" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">果</text>
+<text x="789.9" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">统</text>
+<text x="789.9" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">计</text>
+<line x1="829.9" y1="364.0" x2="829.9" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="812.9" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="829.9" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">打</text>
+<text x="829.9" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">开</text>
+<text x="829.9" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">转</text>
+<text x="829.9" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">化</text>
+<text x="829.9" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">归</text>
+<text x="829.9" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">因</text>
+<text x="749.9" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：推送消息</text>
+<line x1="950.1" y1="222.0" x2="950.1" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="879.1" y="258.0" width="142.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="950.1" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">销售回流</text>
+<line x1="950.1" y1="322.0" x2="950.1" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="890.1" y1="364.0" x2="1010.1" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="890.1" y1="364.0" x2="890.1" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="873.1" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="890.1" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">销</text>
+<text x="890.1" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">售</text>
+<text x="890.1" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">成</text>
+<text x="890.1" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">交</text>
+<text x="890.1" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">登</text>
+<text x="890.1" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">记</text>
+<line x1="930.1" y1="364.0" x2="930.1" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="913.1" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="930.1" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">退</text>
+<text x="930.1" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">货</text>
+<text x="930.1" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">回</text>
+<text x="930.1" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">补</text>
+<text x="930.1" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">登</text>
+<text x="930.1" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">记</text>
+<line x1="970.1" y1="364.0" x2="970.1" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="953.1" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="970.1" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">在</text>
+<text x="970.1" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">售</text>
+<text x="970.1" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">批</text>
+<text x="970.1" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">次</text>
+<text x="970.1" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">选</text>
+<text x="970.1" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">取</text>
+<line x1="1010.1" y1="364.0" x2="1010.1" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="993.1" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1010.1" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">策</text>
+<text x="1010.1" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">略</text>
+<text x="1010.1" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">统</text>
+<text x="1010.1" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">计</text>
+<text x="1010.1" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">累</text>
+<text x="1010.1" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">加</text>
+<text x="950.1" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：销售回流</text>
+<line x1="1130.4" y1="222.0" x2="1130.4" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1059.4" y="258.0" width="142.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="1130.4" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">效果评价</text>
+<line x1="1130.4" y1="322.0" x2="1130.4" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1070.4" y1="364.0" x2="1190.4" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1070.4" y1="364.0" x2="1070.4" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1053.4" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1070.4" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">策</text>
+<text x="1070.4" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">略</text>
+<text x="1070.4" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">效</text>
+<text x="1070.4" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">果</text>
+<text x="1070.4" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">看</text>
+<text x="1070.4" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">板</text>
+<line x1="1110.4" y1="364.0" x2="1110.4" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1093.4" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1110.4" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">首</text>
+<text x="1110.4" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">页</text>
+<text x="1110.4" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">待</text>
+<text x="1110.4" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">办</text>
+<text x="1110.4" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">提</text>
+<text x="1110.4" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">醒</text>
+<line x1="1150.4" y1="364.0" x2="1150.4" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1133.4" y="398.0" width="34.0" height="240.0" rx="3" fill="#fbecd5" stroke="#303133" stroke-width="1.4"/>
+<rect x="1136.9" y="401.5" width="27.0" height="233.0" rx="2" fill="none" stroke="#303133" stroke-width="0.9"/>
+<text x="1150.4" y="455.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">三</text>
+<text x="1150.4" y="478.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">策</text>
+<text x="1150.4" y="501.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">略</text>
+<text x="1150.4" y="524.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">离</text>
+<text x="1150.4" y="547.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">线</text>
+<text x="1150.4" y="570.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">评</text>
+<text x="1150.4" y="593.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">测</text>
+<line x1="1190.4" y1="364.0" x2="1190.4" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1173.4" y="398.0" width="34.0" height="240.0" rx="3" fill="#fbecd5" stroke="#303133" stroke-width="1.4"/>
+<rect x="1176.9" y="401.5" width="27.0" height="233.0" rx="2" fill="none" stroke="#303133" stroke-width="0.9"/>
+<text x="1190.4" y="455.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">弹</text>
+<text x="1190.4" y="478.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">性</text>
+<text x="1190.4" y="501.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">敏</text>
+<text x="1190.4" y="524.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">感</text>
+<text x="1190.4" y="547.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">性</text>
+<text x="1190.4" y="570.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">分</text>
+<text x="1190.4" y="593.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">析</text>
+<text x="1130.4" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：效果看板</text>
+<line x1="1290.7" y1="222.0" x2="1290.7" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1238.7" y="258.0" width="104.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="1290.7" y="295.9" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">顾客端 H5</text>
+<line x1="1290.7" y1="322.0" x2="1290.7" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1250.7" y1="364.0" x2="1330.7" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1250.7" y1="364.0" x2="1250.7" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1233.7" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1250.7" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">当</text>
+<text x="1250.7" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">日</text>
+<text x="1250.7" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">特</text>
+<text x="1250.7" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">价</text>
+<text x="1250.7" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">列</text>
+<text x="1250.7" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">表</text>
+<line x1="1290.7" y1="364.0" x2="1290.7" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1273.7" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1290.7" y="455.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">折</text>
+<text x="1290.7" y="478.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">扣</text>
+<text x="1290.7" y="501.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">与</text>
+<text x="1290.7" y="524.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">余</text>
+<text x="1290.7" y="547.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">量</text>
+<text x="1290.7" y="570.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">提</text>
+<text x="1290.7" y="593.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">示</text>
+<line x1="1330.7" y1="364.0" x2="1330.7" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1313.7" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1330.7" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">合</text>
+<text x="1330.7" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">计</text>
+<text x="1330.7" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">可</text>
+<text x="1330.7" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">省</text>
+<text x="1330.7" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">提</text>
+<text x="1330.7" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">示</text>
+<text x="1290.7" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">页面：H5 特价页</text>
+<line x1="1471.0" y1="222.0" x2="1471.0" y2="258.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1380.0" y="258.0" width="182.0" height="64.0" rx="4" fill="#fff" stroke="#303133" stroke-width="1.6"/>
+<text x="1471.0" y="285.3" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">系统管理与</text>
+<text x="1471.0" y="306.6" font-size="17" fill="#303133" text-anchor="middle" font-weight="600">数据初始化</text>
+<line x1="1471.0" y1="322.0" x2="1471.0" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1391.0" y1="364.0" x2="1551.0" y2="364.0" stroke="#606266" stroke-width="1.5"/>
+<line x1="1391.0" y1="364.0" x2="1391.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1374.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="1391.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">系</text>
+<text x="1391.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">统</text>
+<text x="1391.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">健</text>
+<text x="1391.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">康</text>
+<text x="1391.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">自</text>
+<text x="1391.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">检</text>
+<line x1="1431.0" y1="364.0" x2="1431.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1414.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1431.0" y="478.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">库</text>
+<text x="1431.0" y="501.4" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">表</text>
+<text x="1431.0" y="524.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">初</text>
+<text x="1431.0" y="547.5" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">始</text>
+<text x="1431.0" y="570.6" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">化</text>
+<line x1="1471.0" y1="364.0" x2="1471.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1454.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1471.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">种</text>
+<text x="1471.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">子</text>
+<text x="1471.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">数</text>
+<text x="1471.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">据</text>
+<text x="1471.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">导</text>
+<text x="1471.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">入</text>
+<line x1="1511.0" y1="364.0" x2="1511.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1494.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fbecd5" stroke="#303133" stroke-width="1.4"/>
+<rect x="1497.5" y="401.5" width="27.0" height="233.0" rx="2" fill="none" stroke="#303133" stroke-width="0.9"/>
+<text x="1511.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">仿</text>
+<text x="1511.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">真</text>
+<text x="1511.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">种</text>
+<text x="1511.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">子</text>
+<text x="1511.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">生</text>
+<text x="1511.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">成</text>
+<line x1="1551.0" y1="364.0" x2="1551.0" y2="398.0" stroke="#606266" stroke-width="1.5"/>
+<rect x="1534.0" y="398.0" width="34.0" height="240.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4"/>
+<text x="1551.0" y="466.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">业</text>
+<text x="1551.0" y="489.9" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">务</text>
+<text x="1551.0" y="513.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">参</text>
+<text x="1551.0" y="536.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">数</text>
+<text x="1551.0" y="559.0" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">配</text>
+<text x="1551.0" y="582.1" font-size="18" fill="#303133" text-anchor="middle" font-weight="400">置</text>
+<text x="1471.0" y="668.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">无页面（启动时 / 配置文件）</text>
+<line x1="129.0" y1="222.0" x2="1471.0" y2="222.0" stroke="#606266" stroke-width="1.5"/>
+<text x="32.0" y="779.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">图例</text>
+<rect x="76.0" y="764.0" width="34.0" height="20.0" rx="3" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="120.0" y="779.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">系统</text>
+<rect x="176.0" y="764.0" width="34.0" height="20.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.5"/>
+<text x="220.0" y="779.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">子系统 / 功能模块（在线：页面操作或后台自动执行）</text>
+<rect x="570.8" y="764.0" width="34.0" height="20.0" rx="3" fill="#fff" stroke="#303133" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="614.8" y="779.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">仅接口、无页面（5 个）</text>
+<rect x="789.4" y="764.0" width="34.0" height="20.0" rx="3" fill="#fbecd5" stroke="#303133" stroke-width="1.4"/>
+<rect x="792.4" y="767.0" width="28.0" height="14.0" rx="2" fill="none" stroke="#303133" stroke-width="0.9"/>
+<text x="833.4" y="779.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">离线脚本（scripts/ 下的 Python，3 个）</text>
+<text x="32.0" y="828.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">注 1：各组下方灰字是该子系统在工作台左侧菜单中的页面；效果看板即首页，其待办汇总待确认建议、高风险库存、待发送计划。</text>
+<text x="32.0" y="854.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">注 2：代码中没有登录 / 权限 / 用户管理、会员管理（会员数据来自种子 CSV）、新增单品页面，也没有自动改价或自动发送，图中不画。</text></svg>
