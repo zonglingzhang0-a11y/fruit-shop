@@ -26,7 +26,7 @@ def tw(s: str, size: float) -> float:
 
 
 svg = Svg(W, H, title="数据流程图（顶层图）",
-          subtitle="整个系统看成一个处理 P0：店员录入到货与销售，店主定价、推送，顾客看到店主确认的特价")
+          subtitle="整个系统看成一个处理 P0：店员录入到货、报废与销售，店主定价、推送，顾客看到店主确认的特价")
 svg.text(W - 32, 70, "内部分解见《数据流程图（一层图）》", size=13, color=MUTED, anchor="end")
 
 
@@ -49,7 +49,7 @@ EW, EH = 170, 58
 svg.entity(110, CY - EH / 2, EW, EH, "店主", size=19)
 svg.text(110 + EW / 2, CY + EH / 2 + 26, "决策：定价、推送", size=13, color=MUTED, anchor="middle")
 svg.entity(W - 110 - EW, CY - EH / 2, EW, EH, "店员", size=19)
-svg.text(W - 110 - EW / 2, CY + EH / 2 + 26, "执行：登记到货、销售回流", size=13, color=MUTED, anchor="middle")
+svg.text(W - 110 - EW / 2, CY + EH / 2 + 26, "执行：登记到货与报废、销售回流", size=13, color=MUTED, anchor="middle")
 GX = PX + PW / 2 - 100
 GY = 625
 svg.entity(GX, GY, 200, EH, "顾客/会员", size=19)
@@ -69,9 +69,9 @@ names((LX0 + LX1) / 2, YD + 24, ["临期批次清单", "定价建议", "决策�
 
 # 店员
 svg.arrow([(RX1, YU), (RX0, YU)])
-names((RX0 + RX1) / 2, YU - 10 - 1 * LH, ["到货信息", "销售流水"])
+names((RX0 + RX1) / 2, YU - 10 - 2 * LH, ["到货信息", "报废登记", "销售流水"])
 svg.arrow([(RX0, YD), (RX1, YD)])
-names((RX0 + RX1) / 2, YD + 24, ["批次登记回执", "临期批次清单", "回流回执"])
+names((RX0 + RX1) / 2, YD + 24, ["批次登记回执", "报废回执", "临期批次清单", "回流回执"])
 
 # 顾客/会员
 XA, XB = PX + PW / 2 - 40, PX + PW / 2 + 40

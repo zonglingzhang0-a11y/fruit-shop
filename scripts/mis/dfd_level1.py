@@ -1,13 +1,15 @@
 """数据流程图（一层图）：把顶层图的 P0 分解成 P1–P8 八个处理，画出 D1–D10 十个数据存储和三个外部实体之间的数据流。
 
 内容依据（2026-11 对照代码核实）：
-  - 处理 = 真实模块：P1/P2 batch，P3 pricing，P4 scripts/export_model_suggestions.py，P5 pricing + batch(on-sale)，
+  - 处理 = 真实模块：P1/P2 batch（P1 含 FR-06 报废人工登记 POST /api/batches/{id}/scrap），P3 pricing，P4 scripts/export_model_suggestions.py，P5 pricing + batch(on-sale)，
     P6 traffic，P7 push，P8 sales（Controller 路径见各处理框下的小字）。
   - 数据存储 = 建表脚本里的真实表（src/main/resources/db/schema-h2.sql），D10 是 MODEL 策略读取的文件产物。
   - Python 定价模块画成处理 P4（在系统边界内）：docs/01 §1 架构图把它列为系统的一部分；它读系统自己的
     D1/D2/D8（经 GET /api/pricing/model-input），写 D10，D10 再被 P3 读取。外部实体不能直接读写数据存储，
     所以它不能画成外部实体。
-  - 不画：供应商（docs 里没有这个角色）、报废登记（代码没有写 scrap_qty 的接口）、FIXED 打折（FIXED 现在保持原价）。
+  - 报废登记（BatchScrapService）：店员填批次、数量（空 = 整批）、原因；写 D2（现存↓、累计报废↑、整批报废置 SCRAPPED、
+    留痕列），读 D3 找该批次生效策略，把报废量计入 D9 当日该策略的损耗（没有定价建议的批次不计入）。
+  - 不画：供应商（docs 里没有这个角色）、FIXED 打折（FIXED 现在保持原价）。
 
 为图面清晰，下列读取没有画（图注里写明）：P2/P5/P7 读 D1 取品名和原价；P3 生成前读 D3 做幂等与调价计数；
 P6 的“重算周内客流规律”（POST /api/traffic/profile/recompute，没有页面调用）。
@@ -44,8 +46,14 @@ def proc(pid, x, y, w, name, tag, h=PH):
     svg.line(x, y + 24, x + w, y + 24, stroke=INK, sw=1.2)
     svg.text(x + w / 2, y + 17, pid, size=12, color=INK2, anchor="middle", weight=600)
     cy = y + 24 + (h - 24) / 2
-    svg.text(x + w / 2, cy - 1, name, size=14, anchor="middle", weight=600)
-    svg.text(x + w / 2, cy + 17, tag, size=11.5, color=MUTED, anchor="middle")
+    rows = tag.split("\n")
+    if len(rows) == 1:
+        svg.text(x + w / 2, cy - 1, name, size=14, anchor="middle", weight=600)
+        svg.text(x + w / 2, cy + 17, tag, size=11.5, color=MUTED, anchor="middle")
+    else:                         # 两行模块说明：处理名上移
+        svg.text(x + w / 2, cy - 7, name, size=14, anchor="middle", weight=600)
+        for i, r in enumerate(rows):
+            svg.text(x + w / 2, cy + 10 + i * 13, r, size=11, color=MUTED, anchor="middle")
 
 
 def store(sid, x, y, w, name, dup=False):
@@ -93,8 +101,9 @@ S3 = 664                         # 第二行处理下方的数据存储
 S4 = 730
 
 # ---------------------------------------------------------------- 第一行：到货 → 临期 → 定价 → 确认/公示
-store("D1", 20, C1 - SH / 2, 130, "单品档案")
-proc("P1", 210, R1, 140, "到货登记", "batch · POST /batches")
+store("D1", 20, 291, 130, "单品档案")
+store("D9", 20, 335, 130, "策略效果统计", dup=True)
+proc("P1", 210, R1, 160, "到货与报废登记", "batch · POST /batches\n与 /batches/{id}/scrap")
 store("D6", 400, C1 - SH / 2, 120, "客流统计")
 proc("P2", 580, R1, 140, "临期识别", "batch · 含每小时扫描")
 proc("P3", 870, R1, 140, "定价建议生成", "pricing · generate")
@@ -106,14 +115,17 @@ ent(1480, C1 - EH / 2, 100, "顾客/会员")
 # 第一行上方
 proc("P4", 520, TOP_P4, 240, "模型定价计算", "Python 离线脚本 · 人工运行", h=64)
 store("D10", 840, 111, 180, "模型定价产物（文件）")
-store("D2", 240, S2, 440, "批次台账（含临期判定指标）")
+store("D3", 88, S2, 147, "定价建议", dup=True)
+store("D2", 250, S2, 430, "批次台账（含临期判定指标）")
 store("D8", 700, S2, 140, "销售流水")
 store("D1", 930, S2, 140, "单品档案", dup=True)
 store("D2", 1270, S2, 150, "批次台账", dup=True)
 
 # ---- P1
-flow([(150, C1), (210, C1)], "单品档案", (180, C1 - 6))
-vflow(330, R1, S2 + SH, "新批次记录", "r")
+flow([(150, 308), (210, 308)], "单品档案", (180, 302))
+flow([(210, 352), (150, 352)], "报废量", (180, 367))
+vflow(225, S2 + SH, R1, "生效策略", "l")
+vflow(330, R1, S2 + SH, "新批次 / 报废记录", "r")
 # ---- P2
 flow([(520, C1), (580, C1)], "营业天数", (550, C1 - 6))
 vflow(600, S2 + SH, R1, "在售批次", "l")
@@ -121,7 +133,7 @@ vflow(625, R1, S2 + SH, "临期\n判定指标", "r")
 vflow(710, S2 + SH, R1, "近7天销量", "r")
 flow([(720, 340), (870, 340)], "临期批次及指标", (795, 334))
 # ---- P4（离线）
-flow([(60, C1 - SH / 2), (60, 128), (520, 128)], "单品档案", (290, 122))
+flow([(60, 291), (60, 128), (520, 128)], "单品档案", (290, 122))
 vflow(560, S2, TOP_P4 + 64, "批次数据", "l")
 vflow(740, S2, TOP_P4 + 64, "历史销量", "r")
 flow([(760, 128), (840, 128)], "模型定价产物", (800, 122))
@@ -146,8 +158,8 @@ ent(1290, BAND, 100, "店主", dup=True)
 
 YM1 = (R1 + PH + BAND) / 2 + 4      # 第一行与实体带之间的标注基线
 YM2 = (BAND + EH + R2) / 2 + 4      # 实体带与第二行之间
-vflow(265, BAND, R1 + PH, "到货信息", "l")
-vflow(295, R1 + PH, BAND, "批次登记回执", "r")
+vflow(265, BAND, R1 + PH, "到货信息\n报废登记（批次·数量·原因）", "l")
+vflow(295, R1 + PH, BAND, "批次登记回执\n报废回执", "r")
 flow([(595, R1 + PH), (595, 435), (330, 435)], "临期批次清单", (462, 429))
 vflow(670, R1 + PH, BAND, "临期批次清单", "r")
 vflow(925, BAND, R1 + PH, "定价生成请求", "l")

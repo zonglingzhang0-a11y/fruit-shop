@@ -1,5 +1,5 @@
 """业务流程图（新系统 To-Be）：按业务处理单位分泳道（店主 / 店员 / 系统 / 顾客·会员），画出闭环
-“到货登记 → 临期识别 → 生成定价建议 → 店主确认/改价 → H5 特价页 / 推送 → 销售回流 → 效果看板”。
+“到货登记 → 临期识别（店员可登记报废）→ 生成定价建议 → 店主确认/改价 → H5 特价页 / 推送 → 销售回流 → 效果看板”。
 
 内容取自 docs/04 §4（目标流程、三条“不许”）与实际代码（接口、规则、表名），与 tfd_asis.py 成对：
 同一套泳道、符号、配色、图例和脚注版式。数据存储编号与 DFD 一致（D2 批次台账、D3 定价建议、
@@ -180,10 +180,10 @@ svg.text(W - 32, 70, "依据：docs/04 §4 目标流程与三条“不许”、d
          anchor="end")
 
 LANES = [  # (名称, 角色说明, y0, y1)
-    ("店主", "决策者", 100, 250),
-    ("店员", "执行者", 250, 370),
-    ("系统", "工作台 + 后端", 370, 652),
-    ("顾客·会员", "H5 匿名 / 会员", 652, 774),
+    ("店主", "决策者", 100, 235),
+    ("店员", "执行者", 235, 415),
+    ("系统", "工作台 + 后端", 415, 660),
+    ("顾客·会员", "H5 匿名 / 会员", 660, 774),
 ]
 for i, (nm, role, y0, y1) in enumerate(LANES):
     lane(svg, i, y0, y1, nm, role)
@@ -192,13 +192,16 @@ svg.line(136, 100, 136, 774, stroke="#c0c4cc", sw=1.2)
 
 # 列中心
 X1, X2, X3, X4, X5, X6, X7, X8 = 214, 372, 530, 686, 842, 1004, 1186, 1394
-Y_OWN = 175        # 店主泳道中心
-Y_CLK = 310        # 店员泳道中心
-Y_SYS = 445        # 系统泳道处理行中心
-Y_CUS = 713        # 顾客·会员泳道中心
-ST, SH = 546, 54   # 数据存储行顶边、高度
+Y_OWN = 168        # 店主泳道中心
+Y_C1 = 283         # 店员泳道上行（报废登记、临期清单、销售回流登记）
+Y_C2 = 372         # 店员泳道下行（到货登记）
+Y_SYS = 470        # 系统泳道处理行中心
+Y_CUS = 717        # 顾客·会员泳道中心
+ST, SH = 556, 54   # 数据存储行顶边、高度
 SB = ST + SH
 SM = ST + SH / 2   # 数据存储行中线
+YC = 534           # 处理行与存储行之间的走线 / 标签行
+YB = 644           # 存储行下方的走线
 
 # ---------------------------------------------------------------- 店主泳道
 o_gen = proc(svg, X2, Y_OWN, "发起定价", "看清单、选策略\n点「生成」")
@@ -209,9 +212,10 @@ o_push = proc(svg, X6, Y_OWN, "推送预览与发送", "看高峰时段、看预
 o_eff = proc(svg, X7, Y_OWN, "看板复盘", "对比三种策略\n与推送效果")
 
 # ---------------------------------------------------------------- 店员泳道
-c_in = proc(svg, X1, Y_CLK, "到货登记", "单品·到货日\n保质期·数量·进价", h=64)
-d_list = doc(svg, X2, Y_CLK, "临期/风险清单", "剩余 ≤2 天\n按天数排序", w=DOC_W, h=DOC_H)
-c_sale = proc(svg, X8, Y_CLK, "销售回流登记", "批次·数量·单价\n会员号（可选）", h=64)
+c_scrap = proc(svg, X1, Y_C1, "报废登记", "过期、腐烂的货\n整批/部分·写原因", h=64)
+c_in = proc(svg, X1, Y_C2, "到货登记", "单品·到货日\n保质期·数量·进价", h=64)
+d_list = doc(svg, X2, Y_C1, "临期/风险清单", "剩余 ≤2 天\n按天数排序", w=DOC_W, h=DOC_H)
+c_sale = proc(svg, X8, Y_C1, "销售回流登记", "批次·数量·单价\n会员号（可选）", h=64)
 
 # ---------------------------------------------------------------- 系统泳道：处理
 s_scan = proc(svg, X2, Y_SYS, "临期识别", "每小时只读扫描\n算新鲜度、风险", h=72)
@@ -219,7 +223,8 @@ s_gen = proc(svg, X3, Y_SYS, "生成定价建议", "6 档折扣·底线 0.60\n�
 s_dec = proc(svg, X4, Y_SYS, "校验并留痕", "校验底线与次数\n写入决策记录", h=72)
 s_h5 = proc(svg, X5, Y_SYS, "H5 特价页", "只显示店主确认价\n在售且有库存", h=72)
 s_push = proc(svg, X6, Y_SYS, "生成预览·发送", "每人每天 ≤2 条\n22:00–08:00 静默\n退订会员拦截", h=84, w=136)
-d_eff = doc(svg, X7, Y_SYS, "效果看板", "损耗率·毛利·营收\n策略对比·推送转化", w=136, h=76)
+EFF_W, EFF_H = 136, 76
+d_eff = doc(svg, X7, Y_SYS, "效果看板", "损耗率·毛利·营收\n策略对比·推送转化", w=EFF_W, h=EFF_H)
 s_back = proc(svg, X8, Y_SYS, "回流处理", "扣库存·写流水\n记策略日统计\n3 小时推送归因", h=84)
 
 # ---------------------------------------------------------------- 系统泳道：数据存储
@@ -239,72 +244,78 @@ u_buy = proc(svg, X8, Y_CUS, "到店购买", "会员号可选", h=56)
 # ================================================================ 箭头
 # ① 到货登记 → D2
 svg.arrow([(X1, c_in[3]), (X1, ST)])
-label(svg, X1 + 8, 428, "登记批次")
-label(svg, X1 + 8, 446, "算到期日")
+label(svg, X1 + 8, 462, "登记批次")
+label(svg, X1 + 8, 480, "算到期日")
 
-# ② 临期识别 ↔ D2；识别 → 清单 → 店主
+# ② 临期识别 ↔ D2；识别 → 清单 → 店主 / 店员报废登记 → D2
 svg.arrow([(340, s_scan[3]), (340, ST)], both=True)
-label(svg, 334, 524, "写派生指标", anchor="end", size=12.5)
-svg.arrow([(X2, s_scan[1]), (X2, doc_bottom(X2, Y_CLK, DOC_W, DOC_H, X2))])
+label(svg, 346, YC, "写派生指标", size=12.5)
+svg.arrow([(X2, s_scan[1]), (X2, doc_bottom(X2, Y_C1, DOC_W, DOC_H, X2))])
 svg.arrow([(X2, d_list[1]), (X2, o_gen[3])])
+svg.arrow([(d_list[0], 270), (c_scrap[2], 270)])
+sx = (c_scrap[2] + d_list[0]) / 2
+svg.arrow([(c_scrap[2], 302), (sx, 302), (sx, ST)])
+label(svg, sx + 6, 356, "扣现存", size=12.5)
+label(svg, sx + 6, 373, "记原因", size=12.5)
 
 # ③ 店主发起 → 生成；D2 → 生成；生成 → D3/4、→ 建议单
 gx = (o_gen[2] + s_gen[0]) / 2
 svg.arrow([(o_gen[2], Y_OWN), (gx, Y_OWN), (gx, Y_SYS), (s_gen[0], Y_SYS)])
-label(svg, gx + 6, 296, "生成请求", size=12.5)
+label(svg, gx + 6, 300, "生成请求", size=12.5)
 svg.arrow([(st_batch[2], SM), (488, SM), (488, s_gen[3])])
 svg.arrow([(560, s_gen[3]), (560, ST)])
-label(svg, 566, 524, "写建议", size=12.5)
+label(svg, 566, YC, "写建议", size=12.5)
 svg.arrow([(X3, s_gen[1]), (X3, doc_bottom(X3, Y_OWN, DOC_W, DOC_H, X3))])
-label(svg, X3 + 6, 336, "建议 + 理由", size=12.5)
+label(svg, X3 + 6, 345, "建议 + 理由", size=12.5)
 
 # ④ 建议单 → 店主确认 → 校验留痕 → D3/4
 svg.arrow([(d_sug[2], Y_OWN), (o_dec[0], Y_OWN)])
 svg.arrow([(X4, o_dec[3]), (X4, s_dec[1])])
-label(svg, X4 + 6, 296, "最终价 + 原因", size=12.5)
+label(svg, X4 + 6, 300, "最终价 + 原因", size=12.5)
 svg.arrow([(660, s_dec[3]), (660, ST)])
-label(svg, 666, 524, "写决策", size=12.5)
+label(svg, 666, YC, "写决策", size=12.5)
 
 # ⑤ D3/4 → H5 → 顾客
 svg.arrow([(st_price[2], SM), (806, SM), (806, s_h5[3])])
 label(svg, 757, SM - 7, "确认价", anchor="middle", size=12.5)
 svg.arrow([(874, s_h5[3]), (874, u_view[1])])
-label(svg, 868, 632, "当日特价", anchor="end", size=12.5)
+label(svg, 868, YB - 2, "当日特价", anchor="end", size=12.5)
 
 # ⑥ 店主 ⇄ 推送；推送 → D7、→ 文案 → 会员
 svg.arrow([(984, o_push[3]), (984, s_push[1])])
-label(svg, 978, 296, "确认发送", anchor="end", size=12.5)
+label(svg, 978, 300, "确认发送", anchor="end", size=12.5)
 svg.arrow([(1032, s_push[1]), (1032, o_push[3])])
-label(svg, 1038, 336, "预览", size=12.5)
+label(svg, 1038, 345, "预览", size=12.5)
 svg.arrow([(1040, s_push[3]), (1040, ST)])
 svg.arrow([(960, s_push[3]), (960, d_msg[1])])
-label(svg, 966, 632, "发给会员", size=12.5)
+label(svg, 966, YB - 2, "发给会员", size=12.5)
 
 # ⑦ 顾客到店 → 店员回流登记 → 回流处理 → D2'/D8/D9/D7
 svg.arrow([(d_msg[2], Y_CUS), (u_buy[0], Y_CUS)])
 label(svg, (d_msg[2] + u_buy[0]) / 2, Y_CUS - 7, "会员到店", anchor="middle", size=12.5)
-svg.arrow([(X5, u_view[3]), (X5, 760), (1362, 760), (1362, u_buy[3])])
-svg.arrow([(u_buy[2], Y_CUS), (1554, Y_CUS), (1554, Y_CLK), (c_sale[2], Y_CLK)])
+svg.arrow([(X5, u_view[3]), (X5, 762), (1362, 762), (1362, u_buy[3])])
+svg.arrow([(u_buy[2], Y_CUS), (1554, Y_CUS), (1554, Y_C1), (c_sale[2], Y_C1)])
 label(svg, 1506, Y_CUS - 7, "结账", anchor="middle", size=12.5)
 svg.arrow([(X8, c_sale[3]), (X8, s_back[1])])
-svg.arrow([(1342, s_back[3]), (1342, 520), (1262, 520), (1262, ST)])
+svg.arrow([(1342, s_back[3]), (1342, YC), (1262, YC), (1262, ST)])
 svg.arrow([(1368, s_back[3]), (1368, ST)])
 svg.arrow([(1446, s_back[3]), (1446, ST)])
-svg.arrow([(s_back[2], 430), (1526, 430), (1526, 632), (1050, 632), (1050, SB)])
-label(svg, 1290, 626, "3 小时内同会员同单品 → 记为转化", anchor="middle", size=12.5)
+svg.arrow([(s_back[2], 455), (1526, 455), (1526, YB), (1050, YB), (1050, SB)])
+label(svg, 1290, YB - 6, "3 小时内同会员同单品 → 记为转化", anchor="middle", size=12.5)
 
 # ⑧ D9 / D7 → 效果看板 → 店主复盘
-svg.arrow([(X7, ST), (X7, doc_bottom(X7, Y_SYS, 136, 76, X7))])
+svg.arrow([(X7, ST), (X7, doc_bottom(X7, Y_SYS, EFF_W, EFF_H, X7))])
 svg.arrow([(1104, ST), (1104, Y_SYS), (d_eff[0], Y_SYS)])
 svg.arrow([(X7, d_eff[1]), (X7, o_eff[3])])
 
 # 次日循环（虚线）
-svg.arrow([(X7, o_eff[1]), (X7, 120), (X2, 120), (X2, o_gen[1])], dash="6 4")
-label(svg, (X2 + X7) / 2, 115, "次日再来一轮：新到货与回流销量进入下一轮识别、定价", anchor="middle", size=12.5)
+svg.arrow([(X7, o_eff[1]), (X7, 119), (X2, 119), (X2, o_gen[1])], dash="6 4")
+label(svg, (X2 + X7) / 2, 114, "次日再来一轮：新到货与回流销量进入下一轮识别、定价", anchor="middle", size=12.5)
 
 # ---------------------------------------------------------------- 三条“不许”编号
 callout(svg, s_gen[2] - 4, s_gen[1] + 2, 1)
 callout(svg, s_scan[2] - 4, s_scan[1] + 2, 2)
+callout(svg, c_scrap[2] - 4, c_scrap[1] + 2, 2)
 callout(svg, s_push[2] - 4, s_push[1] + 2, 3)
 
 # ---------------------------------------------------------------- 图例与脚注
@@ -316,14 +327,15 @@ head = "三条“不许”（docs/04 §4.2）："
 svg.text(x, fy, head, size=14, weight=600)
 x += tw(head, 14) - 22   # 弯引号实际比中文字窄
 for n, s in ((1, "不自动改价：系统只写建议，挂出的价格只来自店主决策"),
-             (2, "不自动淘汰：每小时扫描只算指标，不改批次状态"),
+             (2, "不自动淘汰：扫描只算指标、不改状态；报废只能由人登记"),
              (3, "不自动推送：店主点「发送」才发")):
     callout(svg, x + 10, fy - 5, n, r=10)
     x += 26
     svg.text(x, fy, s, size=14, color=INK)
     x += tw(s, 14) + 22
 svg.text(32, 880, "注：策略 FIXED＝原价，RULE＝剩余天数·剩余库存比例·剩余寿命打分查表，MODEL＝离线脚本产出的模型建议（缺失时退回 RULE）；"
-         "推送只是站内消息，不接微信/短信；单品档案、会员、客流等只读数据未画。", size=12.5, color=MUTED)
+         "报废量按该批的定价策略计入 D9 损耗；推送只是站内消息，不接微信/短信；单品档案、会员、客流等只读数据未画。",
+         size=12.5, color=MUTED)
 
 out = svg.save(OUT_DIR / "tfd_tobe.svg")
 print(f"[tfd_tobe] → {out}")
