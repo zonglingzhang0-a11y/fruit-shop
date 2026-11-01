@@ -31,12 +31,14 @@ import java.util.Map;
  *
  * <p><b>三条硬规则</b>：
  * <ol>
- *   <li>只返回**店主已经做过决策**的批次：该批次当天存在 {@code pricing_decision} 记录；
+ *   <li>只返回**店主已经做过决策**的单品：该单品当天存在 {@code pricing_decision} 记录；
  *       没有决策的一律不返回，无论系统建议价多低——未经店主确认的价格不能对外露出；</li>
  *   <li>{@code finalPrice} 取 {@code pricing_decision.final_price}（店主实际定价），
- *       店主改过价时顾客看到改后的价；同一天同批次有多条建议/多次决策时取**最新的一条决策**；</li>
- *   <li>只返回 {@code status='ON_SALE'} 且 {@code remain_qty > 0} 的批次；接口只读，不写任何表。</li>
+ *       店主改过价时顾客看到改后的价；同一天同单品有多条建议/多次决策时取**最新的一条决策**；</li>
+ *   <li>只统计 {@code status='ON_SALE'} 且 {@code remain_qty > 0} 的批次；接口只读，不写任何表。</li>
  * </ol>
+ * 一个单品一天只挂一个价签（与定价建议、离线评测同口径）：每个单品一行，余量是它所有在售批次的合计，
+ * 到期日、新鲜度取最急的那一批。
  */
 @Service
 public class OnSaleService {
@@ -93,46 +95,45 @@ public class OnSaleService {
             return List.of();
         }
 
-        // 同一批次当天可能有多条建议、每条建议又可能被改价多次：以"决策 id 最大"的那条为准（店主最后定的价）。
-        Map<Long, PricingDecision> latestByBatch = new HashMap<>();
+        // 同一单品当天可能有多条建议、每条建议又可能被改价多次：以"决策 id 最大"的那条为准（店主最后定的价）。
+        Map<Long, PricingDecision> latestByItem = new HashMap<>();
         for (PricingDecision decision : decisions) {
             PricingSuggestion suggestion = suggestionById.get(decision.getSuggestionId());
-            if (suggestion == null || suggestion.getBatchId() == null) {
+            if (suggestion == null || suggestion.getItemId() == null || decision.getFinalPrice() == null) {
                 continue;
             }
-            PricingDecision current = latestByBatch.get(suggestion.getBatchId());
+            PricingDecision current = latestByItem.get(suggestion.getItemId());
             if (current == null || decision.getId() > current.getId()) {
-                latestByBatch.put(suggestion.getBatchId(), decision);
+                latestByItem.put(suggestion.getItemId(), decision);
             }
         }
-        if (latestByBatch.isEmpty()) {
+        if (latestByItem.isEmpty()) {
             return List.of();
         }
 
-        Map<Long, FruitBatch> batches = new HashMap<>();
-        batchMapper.selectBatchIds(new ArrayList<>(latestByBatch.keySet()))
-                .forEach(batch -> batches.put(batch.getId(), batch));
         Map<Long, FruitItem> items = new HashMap<>();
-        List<Long> itemIds = batches.values().stream().map(FruitBatch::getItemId).distinct().toList();
-        if (!itemIds.isEmpty()) {
-            itemMapper.selectBatchIds(itemIds).forEach(item -> items.put(item.getId(), item));
-        }
+        itemMapper.selectBatchIds(new ArrayList<>(latestByItem.keySet())).forEach(item -> items.put(item.getId(), item));
+        // 这些单品当前的在售批次，按到期日升序（第一批就是最急的那批）
+        Map<Long, List<FruitBatch>> onSaleByItem = new HashMap<>();
+        batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()
+                        .in(FruitBatch::getItemId, new ArrayList<>(latestByItem.keySet()))
+                        .eq(FruitBatch::getStatus, STATUS_ON_SALE)
+                        .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
+                        .orderByAsc(FruitBatch::getExpireDate)
+                        .orderByAsc(FruitBatch::getId))
+                .forEach(batch -> onSaleByItem.computeIfAbsent(batch.getItemId(), k -> new ArrayList<>()).add(batch));
 
         BatchMetricsService.SalesWindow window = metricsService.loadWindow(biz);
         LocalDateTime computedAt = LocalDateTime.now().withNano(0);
         List<OnSaleRow> rows = new ArrayList<>();
-        for (Map.Entry<Long, PricingDecision> entry : latestByBatch.entrySet()) {
-            FruitBatch batch = batches.get(entry.getKey());
-            if (batch == null || !STATUS_ON_SALE.equals(batch.getStatus())) {
+        for (Map.Entry<Long, PricingDecision> entry : latestByItem.entrySet()) {
+            List<FruitBatch> onSale = onSaleByItem.get(entry.getKey());
+            FruitItem item = items.get(entry.getKey());
+            if (onSale == null || onSale.isEmpty() || item == null || item.getBasePrice() == null) {
                 continue;
             }
-            if (batch.getRemainQty() == null || batch.getRemainQty().compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
-            FruitItem item = items.get(batch.getItemId());
-            if (item == null || item.getBasePrice() == null) {
-                continue;
-            }
+            FruitBatch batch = onSale.get(0);
+            BigDecimal remain = onSale.stream().map(FruitBatch::getRemainQty).reduce(BigDecimal.ZERO, BigDecimal::add);
             PricingDecision decision = entry.getValue();
             PricingSuggestion suggestion = suggestionById.get(decision.getSuggestionId());
             BigDecimal originalPrice = PricingPolicy.round2(item.getBasePrice());
@@ -154,7 +155,7 @@ public class OnSaleService {
                     batch.getExpireDate(),
                     metrics.freshness(),
                     metrics.atRisk(),
-                    batch.getRemainQty(),
+                    remain,
                     decision.getDecidedAt(),
                     suggestion == null ? null : suggestion.getId(),
                     decision.getId()));
@@ -162,7 +163,7 @@ public class OnSaleService {
         rows.sort(Comparator
                 .comparing(OnSaleRow::daysLeft, Comparator.nullsLast(Integer::compareTo))
                 .thenComparing(OnSaleRow::batchId));
-        log.debug("[on-sale] {} 顾客端特价 {} 条（仅含店主已确认的批次）", biz, rows.size());
+        log.debug("[on-sale] {} 顾客端特价 {} 条（仅含店主已确认价格的单品）", biz, rows.size());
         return rows;
     }
 

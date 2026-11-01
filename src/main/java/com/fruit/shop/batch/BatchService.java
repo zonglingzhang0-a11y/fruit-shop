@@ -164,6 +164,22 @@ public class BatchService {
     }
 
     /** 临期批次实体（定价模块复用）。 */
+    /**
+     * 定价用的批次：当天在售、有库存、已到货且未过期（到期日 ≥ 业务日）的全部批次，按到期日、再按 id 升序。
+     * 与离线评测（每个在售批次都打分）和模型产物导出（export_model_suggestions.decision_batches）同口径；
+     * 已过期的批次不再定价，应由店员登记报废（FR-06）。
+     */
+    public List<FruitBatch> pricingBatches(LocalDate bizDate) {
+        LocalDate biz = bizDate == null ? LocalDate.now() : bizDate;
+        return batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()
+                .eq(FruitBatch::getStatus, STATUS_ON_SALE)
+                .gt(FruitBatch::getRemainQty, BigDecimal.ZERO)
+                .le(FruitBatch::getArriveDate, biz)
+                .ge(FruitBatch::getExpireDate, biz)
+                .orderByAsc(FruitBatch::getExpireDate)
+                .orderByAsc(FruitBatch::getId));
+    }
+
     public List<FruitBatch> nearExpiryBatches(LocalDate bizDate, int threshold) {
         LocalDate biz = bizDate == null ? LocalDate.now() : bizDate;
         List<FruitBatch> batches = batchMapper.selectList(Wrappers.<FruitBatch>lambdaQuery()

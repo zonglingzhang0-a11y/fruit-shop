@@ -123,6 +123,8 @@ onMounted(() => {
     <p class="page-desc">
       系统给出候选折扣档中最优的一档（不涨价，折扣系数 ≤ 1.0），并说明理由；店主可以原价采纳、改价或忽略，
       所有动作都会记录，用于事后比较「采纳建议」与「店主经验」的效果差异。
+      每个在售批次都会打分，同一单品一天只挂一个价（取各批最深的一档），所以一行就是一个单品，
+      「依据批次」是决定这个价的那一批，「现存」是该单品所有在售批次的合计。
     </p>
 
     <el-card shadow="never">
@@ -166,7 +168,7 @@ onMounted(() => {
 
       <el-table v-if="rows.length" :data="rows" border stripe>
         <el-table-column prop="itemName" label="单品" min-width="110" />
-        <el-table-column prop="batchNo" label="批次" width="140" />
+        <el-table-column prop="batchNo" label="依据批次" width="140" />
         <el-table-column label="剩余天数" width="90">
           <template #default="{ row }">{{ row.daysLeft }}</template>
         </el-table-column>

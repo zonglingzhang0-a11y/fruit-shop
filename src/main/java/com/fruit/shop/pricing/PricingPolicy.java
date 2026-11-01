@@ -86,6 +86,22 @@ public final class PricingPolicy {
     }
 
     /**
+     * 同一单品一天只挂一个价签：各在售批次的折扣里取**最深**的那一档，返回它的下标；并列时取靠前的
+     * （调用方按到期日升序传入，所以并列时是最急的那批）。与离线评测 {@code pricing_rule.rule_decide_day} 同口径，
+     * 契约测试 {@code PricingRuleContractTest} 用 Python 导出的多批次用例比对。列表为空返回 -1。
+     */
+    public static int deepestIndex(List<BigDecimal> rates) {
+        int best = -1;
+        for (int i = 0; i < rates.size(); i++) {
+            BigDecimal rate = toCandidate(rates.get(i));
+            if (best < 0 || rate.compareTo(toCandidate(rates.get(best))) < 0) {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /**
      * 对任意策略给出的折扣套用"最低折扣线"（docs/07 第 1 节 B）：
      * 折扣系数不得低于 {@code minDiscountRate}；触底时把档位抬到"不低于底线的最小候选档"，
      * 并保留原始档位供解释"本可以更低"。边界取闭区间：恰好等于底线视为通过（floorHit=false）。

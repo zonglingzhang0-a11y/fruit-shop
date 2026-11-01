@@ -759,7 +759,7 @@ public class PushService {
 
     /**
      * 推送用的价格（预览、现拼、发送三处共用这一个实现，不允许各算一套）。
-     * 有店主确认价 → 取该业务日该单品在售批次上最新一条决策的 final_price；
+     * 有店主确认价 → 取该业务日该单品最新一条决策的 final_price（一个单品一天一个价签，与 H5 同口径）；
      * 否则按手填折扣 / 剩余天数档位，并套用最低折扣线。
      */
     private PriceQuote quotePrice(FruitItem item, LocalDate bizDate, BigDecimal requestedRate) {
@@ -771,38 +771,29 @@ public class PushService {
         BigDecimal basePrice = item.getBasePrice();
 
         if (!onSale.isEmpty() && basePrice != null) {
-            Map<Long, FruitBatch> batchById = new HashMap<>();
-            onSale.forEach(b -> batchById.put(b.getId(), b));
             List<PricingSuggestion> suggestions = suggestionMapper.selectList(Wrappers.<PricingSuggestion>lambdaQuery()
                     .eq(PricingSuggestion::getBizDate, bizDate)
-                    .eq(PricingSuggestion::getItemId, item.getId())
-                    .in(PricingSuggestion::getBatchId, new ArrayList<>(batchById.keySet())));
+                    .eq(PricingSuggestion::getItemId, item.getId()));
             if (!suggestions.isEmpty()) {
                 Map<Long, PricingSuggestion> suggestionById = new HashMap<>();
                 suggestions.forEach(sg -> suggestionById.put(sg.getId(), sg));
-                // 与 H5 特价页同一口径：每个批次取它自己最新的一条决策（店主最后定的价）
-                Map<Long, PricingDecision> latestByBatch = new HashMap<>();
+                // 与 H5 特价页同一口径：该单品当天最新的一条决策（店主最后定的价）。
+                // 定价依据的那批卖完了也照样有效：同单品其余批次挂的是同一个价
+                PricingDecision decision = null;
                 for (PricingDecision d : decisionMapper.selectList(Wrappers.<PricingDecision>lambdaQuery()
                         .in(PricingDecision::getSuggestionId, new ArrayList<>(suggestionById.keySet())))) {
-                    if (d.getFinalPrice() == null) {
-                        continue;
-                    }
-                    Long batchId = suggestionById.get(d.getSuggestionId()).getBatchId();
-                    PricingDecision current = latestByBatch.get(batchId);
-                    if (current == null || d.getId() > current.getId()) {
-                        latestByBatch.put(batchId, d);
+                    if (d.getFinalPrice() != null && (decision == null || d.getId() > decision.getId())) {
+                        decision = d;
                     }
                 }
-                // 多个批次都有确认价时推最急的那批（onSale 已按到期日升序），而不是看店主先点了哪个
-                FruitBatch batch = onSale.stream().filter(b -> latestByBatch.containsKey(b.getId()))
-                        .findFirst().orElse(null);
-                PricingDecision decision = batch == null ? null : latestByBatch.get(batch.getId());
                 if (decision != null) {
+                    // 文案里的剩余天数、到期日按最急的在售批次写（onSale 已按到期日升序）
+                    FruitBatch batch = onSale.get(0);
                     PricingSuggestion suggestion = suggestionById.get(decision.getSuggestionId());
                     BigDecimal price = PricingPolicy.round2(decision.getFinalPrice());
                     BigDecimal rate = PricingPolicy.rateOf(price, basePrice);
                     String note = "价格取店主确认价 ¥" + PricingPolicy.money(price)
-                            + "（定价决策 #" + decision.getId() + "，批次 " + batch.getBatchNo() + "）";
+                            + "（定价决策 #" + decision.getId() + "，单品统一价）";
                     if (requestedRate != null && PricingPolicy.toCandidate(requestedRate).compareTo(rate) != 0) {
                         note += "；手填/预览时的折扣 " + requestedRate.toPlainString() + " 已忽略，推送价格必须与店主确认价一致";
                     }

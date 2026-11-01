@@ -70,6 +70,32 @@ class PricingRuleContractTest {
     }
 
     @Test
+    @DisplayName("一个单品一天一个价：多批次时各批打分取最深的一档再套底线，与评测的 rule_decide_day 逐条一致")
+    void itemPriceMatchesEvaluationForEveryScenario() throws IOException {
+        JsonNode contract = contract();
+        BigDecimal floor = contract.get("item_floor").decimalValue();
+        JsonNode cases = contract.get("item_cases");
+        assertThat(cases.size()).as("单品用例数").isGreaterThanOrEqualTo(200);
+
+        List<String> mismatches = new ArrayList<>();
+        for (JsonNode scenario : cases) {
+            List<BigDecimal> rates = new ArrayList<>();
+            for (JsonNode b : scenario.get("batches")) {
+                Integer shelfLife = b.get(3).isNull() ? null : b.get(3).intValue();
+                rates.add(RuleBasedPricingStrategy.score(b.get(0).intValue(), decimalOrNull(b.get(1)),
+                        decimalOrNull(b.get(2)), shelfLife).rate());
+            }
+            // PricingService.generate 用的就是这两步：PricingPolicy.deepestIndex 取最深，再统一套底线
+            BigDecimal itemRate = PricingPolicy.applyFloor(rates.get(PricingPolicy.deepestIndex(rates)), floor).rate();
+            BigDecimal expected = scenario.get("rate").decimalValue();
+            if (itemRate.compareTo(expected) != 0) {
+                mismatches.add(scenario.get("batches") + "：Java " + itemRate + "，Python " + expected);
+            }
+        }
+        assertThat(mismatches).as("与评测不一致的单品用例（共 %d 条）", mismatches.size()).isEmpty();
+    }
+
+    @Test
     @DisplayName("系统默认最低折扣线就是评测用的 0.60（契约里比对过这一档）")
     void defaultFloorIsCoveredByContract() throws IOException {
         List<BigDecimal> floors = new ArrayList<>();

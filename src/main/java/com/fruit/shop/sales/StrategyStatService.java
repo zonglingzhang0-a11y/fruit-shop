@@ -36,23 +36,24 @@ public class StrategyStatService {
     }
 
     /**
-     * 按批次（优先）或商品推断该笔销售归属的策略；推断不出来返回 null。
+     * 推断一笔销售（或报废）归属的策略：取该单品在当天及以前最近的一条定价建议。
+     * 一个单品一天一个价签，建议按单品出（挂在决定价格的那批上），所以按单品找，而不是按批次——
+     * 同单品其他批次卖出的货也是按这个价卖的；拿不到单品时才按批次找。推断不出来返回 null。
      * 归属到<b>实际给出价格的策略</b>（effective_strategy）：请求 MODEL 但回退规则版的建议算 RULE。
      */
     public String inferStrategy(Long batchId, Long itemId, LocalDate bizDate) {
         LocalDate day = bizDate == null ? LocalDate.now() : bizDate;
         PricingSuggestion suggestion = null;
-        if (batchId != null) {
+        if (itemId != null) {
             suggestion = suggestionMapper.selectOne(Wrappers.<PricingSuggestion>lambdaQuery()
-                    .eq(PricingSuggestion::getBatchId, batchId)
+                    .eq(PricingSuggestion::getItemId, itemId)
                     .le(PricingSuggestion::getBizDate, day)
                     .orderByDesc(PricingSuggestion::getBizDate)
                     .orderByDesc(PricingSuggestion::getId)
                     .last("LIMIT 1"));
-        }
-        if (suggestion == null && itemId != null) {
+        } else if (batchId != null) {
             suggestion = suggestionMapper.selectOne(Wrappers.<PricingSuggestion>lambdaQuery()
-                    .eq(PricingSuggestion::getItemId, itemId)
+                    .eq(PricingSuggestion::getBatchId, batchId)
                     .le(PricingSuggestion::getBizDate, day)
                     .orderByDesc(PricingSuggestion::getBizDate)
                     .orderByDesc(PricingSuggestion::getId)

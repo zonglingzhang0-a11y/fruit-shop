@@ -47,7 +47,7 @@ public class AppProperties {
         private BigDecimal minDiscountRate = PricingPolicy.DEFAULT_MIN_DISCOUNT_RATE;
 
         /**
-         * 同一批次每天最多调价次数（docs/07 第 1 节 B），默认 2；第 3 次调价会被拒绝并给出人话原因。
+         * 同一单品每天最多调价次数（docs/07 第 1 节 B；一个单品一天一个价签），默认 2；第 3 次调价会被拒绝并给出人话原因。
          * yml 键 {@code app.pricing.max-adjust-per-day}。
          */
         private int maxAdjustPerDay = PricingPolicy.DEFAULT_MAX_ADJUST_PER_DAY;

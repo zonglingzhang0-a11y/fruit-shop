@@ -380,6 +380,10 @@ CONTRACT_QTY = (  # (现存, 到货量)
 )
 CONTRACT_SHELF_LIFE = (None, 3, 5, 7, 10, 20)
 CONTRACT_FLOORS = (0.60, 0.65)
+#: 单品级（一天一个价签）用例：固定种子随机生成 1~4 个批次的组合，期望值由评测实际调用的 rule_decide_day 给出
+CONTRACT_ITEM_SEED = 20261101
+CONTRACT_ITEM_CASES = 200
+CONTRACT_ITEM_FLOOR = 0.60
 
 
 def contract_cases() -> dict:
@@ -401,16 +405,44 @@ def contract_cases() -> dict:
         "floors": list(CONTRACT_FLOORS),
         "columns": ["days_left", "remain_qty", "init_qty", "shelf_life_days", "rate"]
                    + [f"rate_floor_{f:.2f}" for f in CONTRACT_FLOORS],
+        "item_floor": CONTRACT_ITEM_FLOOR,
         "cases": rows,
+        "item_cases": contract_item_cases(),
     }
+
+
+def contract_item_cases() -> List[dict]:
+    """同一单品多个在售批次 → 当天挂的那一个价（rule_decide_day，底线 0.60）。
+
+    每个用例：{"batches": [[剩余天数, 现存, 到货量, 保质期], ...], "rate": 单品价}；批次按剩余天数升序（后端按到期日升序）。
+    """
+    import random
+
+    rnd = random.Random(CONTRACT_ITEM_SEED)
+    out = []
+    for _ in range(CONTRACT_ITEM_CASES):
+        batches = []
+        for _ in range(rnd.randint(1, 4)):
+            init = rnd.choice([None, 10, 20, 40])
+            remain = rnd.choice([1, 2, 5, 8, 15, 25]) if init is None else rnd.choice(
+                [round(init * f, 1) for f in (0.1, 0.29, 0.3, 0.5, 0.7, 0.9, 1.0)])
+            batches.append([rnd.randint(0, 8), remain, init, rnd.choice([None, 3, 5, 7, 10, 20])])
+        batches.sort(key=lambda b: b[0])
+        rows = [{"item_code": "X", "days_left": d, "remain_qty": r, "init_qty": i, "shelf_life_days": life}
+                for d, r, i, life in batches]
+        out.append({"batches": batches, "rate": rule_decide_day(rows, min_discount_rate=CONTRACT_ITEM_FLOOR)["X"]})
+    return out
 
 
 def _contract_text(data: dict) -> str:
     """一行一个用例，diff 好读。"""
-    head = {k: v for k, v in data.items() if k != "cases"}
-    body = ",\n".join("    " + json.dumps(r, ensure_ascii=False) for r in data["cases"])
-    text = json.dumps(head, ensure_ascii=False, indent=2)
-    return text[:-2] + ',\n  "cases": [\n' + body + "\n  ]\n}\n"
+    lists = ("cases", "item_cases")
+    head = {k: v for k, v in data.items() if k not in lists}
+    text = json.dumps(head, ensure_ascii=False, indent=2)[:-2]
+    for key in lists:
+        body = ",\n".join("    " + json.dumps(r, ensure_ascii=False) for r in data[key])
+        text += ',\n  "' + key + '": [\n' + body + "\n  ]"
+    return text + "\n}\n"
 
 
 def export_contract(path: Path = CONTRACT_PATH) -> Path:

@@ -293,7 +293,7 @@ class ModelPricingIntegrationTest {
 
         SuggestionGenerateResponse again = withModelFile(usableOther, () -> pricingService.generate(request(bizDate)));
 
-        assertThat(again.strategyNote()).contains("仍没有该批次");
+        assertThat(again.strategyNote()).contains("仍没有该单品");
         assertThat(pricingService.query(bizDate, "MODEL").stream()
                 .filter(v -> batch.getId().equals(v.batchId())).toList()).singleElement()
                 .satisfies(v -> assertThat(v.id()).isEqualTo(first.id()));

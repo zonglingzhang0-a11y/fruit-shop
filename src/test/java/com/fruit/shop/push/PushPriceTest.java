@@ -186,23 +186,31 @@ class PushPriceTest {
     }
 
     @Test
-    @DisplayName("多个批次都有确认价：推最急（最早到期）的那批，与店主先确认哪个无关")
-    void multipleConfirmedBatchesPushTheMostUrgentOne() {
+    @DisplayName("一个单品一天一个确认价：定价依据的那批卖完了，推送照样用这个价，文案按最急的在售批次写")
+    void confirmedItemPriceSurvivesWhenDecidingBatchSellsOut() {
         LocalDate bizDate = LocalDate.of(2033, 3, 16);
         FruitItem item = ShopFixtures.item(itemMapper, "多批次柚子", ShopFixtures.unique("推送价类"), "5.00", "12.80", 5);
-        // A：还剩 1 天；B：还剩 2 天（两批都进临期清单、都会生成建议）
+        // A：还剩 1 天（规则 5 折、被底线抬到 6 折）；B：还剩 2 天（7 折）。同单品只挂一个价 → 取最深的 A
         FruitBatch urgent = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 5, "10", "5.00");
         FruitBatch later = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "10", "5.00");
         generate(bizDate);
-        Long urgentDecision = decide(suggestionOf(bizDate, urgent.getId()), "7.68");
-        decide(suggestionOf(bizDate, later.getId()), "8.96");
+        Long decision = decide(suggestionOf(bizDate, urgent.getId()), "7.68");
 
         PushPreviewResponse preview = preview(item.getId(), bizDate, "0.80");
-
         assertThat(preview.batchNo()).isEqualTo(urgent.getBatchNo());
         assertThat(preview.daysLeft()).isEqualTo(1);
         assertThat(preview.discountPrice()).isEqualByComparingTo("7.68");
-        assertThat(preview.priceDecisionId()).isEqualTo(urgentDecision);
+        assertThat(preview.priceDecisionId()).isEqualTo(decision);
+
+        // A 卖完：B 挂的是同一个价，推送仍用店主确认的 7.68，剩余天数按 B 写
+        urgent.setRemainQty(java.math.BigDecimal.ZERO);
+        urgent.setStatus("SOLD_OUT");
+        batchMapper.updateById(urgent);
+        PushPreviewResponse after = preview(item.getId(), bizDate, "0.80");
+        assertThat(after.batchNo()).isEqualTo(later.getBatchNo());
+        assertThat(after.daysLeft()).isEqualTo(2);
+        assertThat(after.discountPrice()).isEqualByComparingTo("7.68");
+        assertThat(after.priceDecisionId()).isEqualTo(decision);
     }
 
     @Test

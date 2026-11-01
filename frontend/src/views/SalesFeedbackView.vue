@@ -9,7 +9,7 @@ import { defaultBizDate } from '../utils/bizDate'
 const bizDate = ref(defaultBizDate())
 const items = ref([])
 const batches = ref([])
-const confirmedPrice = ref({}) // batchId → 店主当天确认的价格（来自 /batches/on-sale）
+const confirmedPrice = ref({}) // itemId → 店主当天确认的价格（来自 /batches/on-sale；一个单品一天一个价签）
 const loadingBatches = ref(false)
 const submitting = ref(false)
 const result = ref(null)
@@ -42,19 +42,18 @@ const fifoBatch = computed(() => (form.value.isReturn ? null : batches.value.fin
 
 function defaultPrice() {
   const batch = selectedBatch.value || fifoBatch.value
-  if (batch && confirmedPrice.value[batch.batchId] != null) {
-    return Number(confirmedPrice.value[batch.batchId])
+  if (form.value.itemId != null && confirmedPrice.value[form.value.itemId] != null) {
+    return Number(confirmedPrice.value[form.value.itemId])
   }
   const base = batch?.basePrice ?? selectedItem.value?.basePrice
   return base == null ? null : Number(base)
 }
 
 const priceHint = computed(() => {
-  const batch = selectedBatch.value || fifoBatch.value
-  if (batch && confirmedPrice.value[batch.batchId] != null) {
-    return '默认填店主当天确认的价格'
+  if (form.value.itemId != null && confirmedPrice.value[form.value.itemId] != null) {
+    return '默认填店主当天确认的价格（同单品各批次一个价）'
   }
-  return '默认填原价（这批当天没有店主确认的折扣价）'
+  return '默认填原价（该单品当天没有店主确认的折扣价）'
 })
 
 async function loadItems() {
@@ -66,7 +65,7 @@ async function loadConfirmedPrices() {
   try {
     const rows = await api.onSale({ bizDate: bizDate.value })
     const map = {}
-    for (const r of rows || []) map[r.batchId] = r.finalPrice
+    for (const r of rows || []) map[r.itemId] = r.finalPrice
     confirmedPrice.value = map
   } catch (e) {
     confirmedPrice.value = {}

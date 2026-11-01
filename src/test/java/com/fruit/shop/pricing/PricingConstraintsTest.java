@@ -182,9 +182,9 @@ class PricingConstraintsTest {
     }
 
     @Test
-    @DisplayName("验收 2：同批次当天第 3 次调价在生成路径被拒；adjust_seq 如实递增；幂等重跑不占次数")
+    @DisplayName("验收 2：同一单品当天第 3 次调价在生成路径被拒；adjust_seq 如实递增；幂等重跑不占次数")
     void thirdAdjustmentRejectedOnGeneratePath() {
-        // 日期取种子数据之前，命中批次只有本用例的批次；断言仍以"本批次"为准，避免依赖全局计数。
+        // 日期取种子数据之前；同类其他用例的批次也可能在这天在售（定价范围是全部在售批次），所以断言只看本单品，不看全局条数。
         LocalDate bizDate = LocalDate.of(2026, 1, 25);
         FruitItem item = ShopFixtures.item(itemMapper, "调价上限果", ShopFixtures.unique("上限类"),
                 "4.00", "10.00", 5);
@@ -202,13 +202,12 @@ class PricingConstraintsTest {
 
         // 幂等重跑（同一天同策略同批次）：不算调价次数，也不改动已有建议
         SuggestionGenerateResponse rerun = generate(bizDate, "RULE");
-        assertThat(rerun.generated()).isZero();
-        assertThat(rerun.skippedByAdjustLimit()).as("幂等重跑不该被当成第 3 次调价").isZero();
+        assertThat(rerun.adjustLimitNote() == null || !rerun.adjustLimitNote().contains(item.getItemName()))
+                .as("幂等重跑不该被当成第 3 次调价").isTrue();
         assertThat(suggestionsOf(batch.getId())).isEqualTo(2);
 
         // 第 3 次调价 → 拒绝，并给出人话原因
         SuggestionGenerateResponse third = generate(bizDate, "MODEL");
-        assertThat(third.generated()).isZero();
         assertThat(third.skippedByAdjustLimit()).isGreaterThanOrEqualTo(1);
         assertThat(third.adjustLimitNote()).contains("每天最多调价 2 次");
         assertThat(suggestionsOf(batch.getId())).isEqualTo(2);
@@ -219,10 +218,11 @@ class PricingConstraintsTest {
                         .eq(PricingSuggestion::getBatchId, batch.getId())
                         .orderByAsc(PricingSuggestion::getId));
         assertThat(stored).extracting(PricingSuggestion::getAdjustSeq).containsExactly(1, 2);
-        assertThat(adjustGuard.adjustCount(bizDate, batch.getId())).isEqualTo(2);
-        assertThat(adjustGuard.canAdjust(bizDate, batch.getId())).isFalse();
+        // 一个单品一天一个价签：调价次数按单品计
+        assertThat(adjustGuard.adjustCount(bizDate, item.getId())).isEqualTo(2);
+        assertThat(adjustGuard.canAdjust(bizDate, item.getId())).isFalse();
         // 生成与改价两条路径共用同一句人话原因
-        assertThat(adjustGuard.limitReason(batch.getBatchNo(), bizDate, 2))
+        assertThat(adjustGuard.limitReason(item.getItemName(), bizDate, 2))
                 .contains("第 3 次调价被拒绝")
                 .contains("每天最多调价 2 次");
     }
@@ -243,14 +243,14 @@ class PricingConstraintsTest {
         DecisionResponse accepted = pricingService.decide(accept);
         assertThat(accepted.accepted()).isTrue();
         assertThat(accepted.changed()).isFalse();
-        assertThat(adjustGuard.adjustCount(bizDate, batch.getId())).isEqualTo(1);
+        assertThat(adjustGuard.adjustCount(bizDate, item.getId())).isEqualTo(1);
 
         // 第 2 次：改价到 6.50（0.65 ≥ 底线）→ 允许
         DecisionRequest first = new DecisionRequest();
         first.setSuggestionId(suggestion.id());
         first.setFinalPrice(new BigDecimal("6.50"));
         assertThat(pricingService.decide(first).finalPrice()).isEqualByComparingTo("6.50");
-        assertThat(adjustGuard.adjustCount(bizDate, batch.getId())).isEqualTo(2);
+        assertThat(adjustGuard.adjustCount(bizDate, item.getId())).isEqualTo(2);
 
         // 第 3 次：再改价 → 拒绝，人话原因
         DecisionRequest second = new DecisionRequest();
@@ -259,7 +259,7 @@ class PricingConstraintsTest {
         assertThatThrownBy(() -> pricingService.decide(second))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("每天最多调价 2 次")
-                .hasMessageContaining(batch.getBatchNo());
+                .hasMessageContaining(item.getItemName());
         assertThat(decisionsOf(suggestion.id())).isEqualTo(2);
     }
 
