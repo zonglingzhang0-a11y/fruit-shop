@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 // 开发/预览期把 /api 代理到 Spring Boot，避免跨域。
 //
@@ -13,7 +16,24 @@ const proxy = {
 }
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    // Element Plus 按需引入（Issue #4）：模板里用到哪个 <el-xxx> / v-loading，就只打包哪个组件和它的样式，
+    // 不再整包引入 element-plus 与 element-plus/dist/index.css。
+    // 注意：源码里手写的 `import { ElMessage } from 'element-plus'` 插件不会处理，样式不会自动带上，
+    // 所以 ElMessage 的样式在 src/main.js 里显式引入；不写 import 直接用 ElMessage/ElMessageBox 等时，
+    // 由 AutoImport 连同样式一起注入。
+    AutoImport({
+      resolvers: [ElementPlusResolver()],
+      dts: false
+    }),
+    Components({
+      resolvers: [ElementPlusResolver()],
+      // 只解析 Element Plus；src/components 下的自有组件仍由各页面显式 import
+      dirs: [],
+      dts: false
+    })
+  ],
   server: {
     port: 5173,
     proxy: { '/api': proxy }

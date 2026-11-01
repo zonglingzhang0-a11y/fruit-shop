@@ -1,6 +1,9 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+// Element Plus 按需引入后不再 app.use(ElementPlus, { locale })，中文语言包改由模板最外层的
+// <el-config-provider> 提供（日期选择器、分页、空状态等内置文案保持中文）
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)
@@ -9,54 +12,56 @@ const standalone = computed(() => route.meta?.standalone === true)
 </script>
 
 <template>
-  <!-- 顾客端 H5：独立布局 -->
-  <router-view v-if="standalone" />
+  <el-config-provider :locale="zhCn">
+    <!-- 顾客端 H5：独立布局 -->
+    <router-view v-if="standalone" />
 
-  <!-- 店长工作台 -->
-  <el-container v-else class="layout">
-    <el-header class="header">
-      <div class="brand">
-        <span class="logo">🍊</span>
-        <div>
-          <div class="title">临期果品定价与推送工作台</div>
-          <div class="subtitle">建议由系统给出，定价权在店主手里</div>
+    <!-- 店长工作台 -->
+    <el-container v-else class="layout">
+      <el-header class="header">
+        <div class="brand">
+          <span class="logo">🍊</span>
+          <div>
+            <div class="title">临期果品定价与推送工作台</div>
+            <div class="subtitle">建议由系统给出，定价权在店主手里</div>
+          </div>
         </div>
-      </div>
-      <el-tag type="success" effect="plain">决策辅助模式 · 不自动改价</el-tag>
-    </el-header>
+        <el-tag type="success" effect="plain">决策辅助模式 · 不自动改价</el-tag>
+      </el-header>
 
-    <el-container>
-      <el-aside width="210px" class="aside">
-        <el-menu :default-active="activeMenu" router>
-          <el-menu-item index="/">
-            <span>效果看板</span>
-          </el-menu-item>
-          <el-menu-item index="/near-expiry">
-            <span>临期清单</span>
-          </el-menu-item>
-          <el-menu-item index="/pricing">
-            <span>定价建议</span>
-          </el-menu-item>
-          <el-menu-item index="/traffic">
-            <span>客流时段</span>
-          </el-menu-item>
-          <el-menu-item index="/push">
-            <span>推送消息</span>
-          </el-menu-item>
-          <el-menu-item index="/sales">
-            <span>销售回流</span>
-          </el-menu-item>
-          <el-menu-item index="/h5">
-            <span>顾客端 H5 特价页 ↗</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
+      <el-container>
+        <el-aside width="210px" class="aside">
+          <el-menu :default-active="activeMenu" router>
+            <el-menu-item index="/">
+              <span>效果看板</span>
+            </el-menu-item>
+            <el-menu-item index="/near-expiry">
+              <span>临期清单</span>
+            </el-menu-item>
+            <el-menu-item index="/pricing">
+              <span>定价建议</span>
+            </el-menu-item>
+            <el-menu-item index="/traffic">
+              <span>客流时段</span>
+            </el-menu-item>
+            <el-menu-item index="/push">
+              <span>推送消息</span>
+            </el-menu-item>
+            <el-menu-item index="/sales">
+              <span>销售回流</span>
+            </el-menu-item>
+            <el-menu-item index="/h5">
+              <span>顾客端 H5 特价页 ↗</span>
+            </el-menu-item>
+          </el-menu>
+        </el-aside>
 
-      <el-main class="main">
-        <router-view />
-      </el-main>
+        <el-main class="main">
+          <router-view />
+        </el-main>
+      </el-container>
     </el-container>
-  </el-container>
+  </el-config-provider>
 </template>
 
 <style>
