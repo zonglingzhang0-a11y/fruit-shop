@@ -28,6 +28,14 @@ export function defaultBizDate() {
   return SEED_END_DATE
 }
 
+/** 'YYYY-MM-DD' 加减天数（按本地日历算，不经过 UTC，避免时区把日期挪一天） */
+export function shiftDate(date, days) {
+  const [y, m, d] = String(date).split('-').map(Number)
+  const t = new Date(y, m - 1, d + days)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`
+}
+
 /** 给日期选择器用的默认值：与 defaultBizDate 一致，语义更清晰 */
 export function defaultDateRange(days = 30) {
   const end = new Date(SEED_END_DATE)

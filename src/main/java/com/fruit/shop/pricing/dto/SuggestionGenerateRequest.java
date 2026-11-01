@@ -16,7 +16,4 @@ public class SuggestionGenerateRequest {
 
     /** FIXED / RULE / MODEL；不传用 app.pricing.active-strategy。 */
     private String strategy;
-
-    /** 可选：本次生成覆盖的临期天数阈值，不传用 app.pricing.near-expiry-days。 */
-    private Integer days;
 }

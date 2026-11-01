@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','WenQuanYi Zen Hei',sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker><marker id="arrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker></defs><rect width="1600" height="900" fill="#fff"/><text x="32.0" y="42.0" font-size="24" fill="#303133" text-anchor="start" font-weight="600">数据流程图（顶层图）</text>
+<text x="32.0" y="70.0" font-size="14" fill="#606266" text-anchor="start" font-weight="400">整个系统看成一个处理 P0：店员录入到货、报废与销售，店主定价、推送，顾客看到店主确认的特价</text>
+<text x="1568.0" y="70.0" font-size="13" fill="#909399" text-anchor="end" font-weight="400">内部分解见《数据流程图（一层图）》</text>
+<rect x="590.0" y="205.0" width="420.0" height="250.0" rx="18" fill="#eefaf4" stroke="#303133" stroke-width="1.8"/>
+<line x1="590.0" y1="239.0" x2="1010.0" y2="239.0" stroke="#303133" stroke-width="1.4"/>
+<text x="800.0" y="229.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="600">P0</text>
+<text x="800.0" y="340.0" font-size="22" fill="#303133" text-anchor="middle" font-weight="600">临期果品定价与推送工作台</text>
+<text x="800.0" y="374.0" font-size="13.5" fill="#909399" text-anchor="middle" font-weight="400">Vue 工作台 · Spring Boot 后端 · Python 定价脚本</text>
+<rect x="115.0" y="306.0" width="170.0" height="58.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="110.0" y="301.0" width="170.0" height="58.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="195.0" y="336.6" font-size="19" fill="#303133" text-anchor="middle" font-weight="600">店主</text>
+<text x="195.0" y="385.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">决策：定价、推送</text>
+<rect x="1325.0" y="306.0" width="170.0" height="58.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="1320.0" y="301.0" width="170.0" height="58.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="1405.0" y="336.6" font-size="19" fill="#303133" text-anchor="middle" font-weight="600">店员</text>
+<text x="1405.0" y="385.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">执行：登记到货与报废、销售回流</text>
+<rect x="705.0" y="630.0" width="200.0" height="58.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="700.0" y="625.0" width="200.0" height="58.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="800.0" y="660.6" font-size="19" fill="#303133" text-anchor="middle" font-weight="600">顾客/会员</text>
+<text x="800.0" y="709.0" font-size="13" fill="#909399" text-anchor="middle" font-weight="400">H5 匿名看特价；站内推送只发会员</text>
+<polyline points="280.0,300.0 590.0,300.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="435.0" y="198.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价生成请求</text>
+<text x="435.0" y="221.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价决策（采纳 / 改价 / 不采纳）</text>
+<text x="435.0" y="244.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">查询日期</text>
+<text x="435.0" y="267.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送请求</text>
+<text x="435.0" y="290.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">发送确认</text>
+<polyline points="590.0,360.0 280.0,360.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="435.0" y="384.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期批次清单</text>
+<text x="435.0" y="407.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价建议</text>
+<text x="435.0" y="430.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">决策回执</text>
+<text x="435.0" y="453.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">高峰时段、建议推送时间</text>
+<text x="435.0" y="476.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送预览、发送回执</text>
+<text x="435.0" y="499.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">全店群发文案</text>
+<text x="435.0" y="522.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送效果、效果统计</text>
+<polyline points="1320.0,300.0 1010.0,300.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1165.0" y="244.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">到货信息</text>
+<text x="1165.0" y="267.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">报废登记</text>
+<text x="1165.0" y="290.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">销售流水</text>
+<polyline points="1010.0,360.0 1320.0,360.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1165.0" y="384.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">批次登记回执</text>
+<text x="1165.0" y="407.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">报废回执</text>
+<text x="1165.0" y="430.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期批次清单</text>
+<text x="1165.0" y="453.0" font-size="16" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">回流回执</text>
+<polyline points="760.0,455.0 760.0,625.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="748.0" y="534.0" font-size="16" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">当日特价（店主确认价）</text>
+<text x="748.0" y="557.0" font-size="16" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">站内推送消息</text>
+<polyline points="840.0,625.0 840.0,455.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="852.0" y="546.0" font-size="16" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送打开回执</text>
+<text x="32.0" y="815.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">图例</text>
+<rect x="79.0" y="803.0" width="34.0" height="20.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="76.0" y="800.0" width="34.0" height="20.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.3"/>
+<text x="120.0" y="815.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">外部实体</text>
+<rect x="200.0" y="798.0" width="40.0" height="26.0" rx="6" fill="#eefaf4" stroke="#303133" stroke-width="1.3"/>
+<line x1="200.0" y1="807.0" x2="240.0" y2="807.0" stroke="#303133" stroke-width="1"/>
+<text x="250.0" y="815.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">处理（上栏为编号）</text>
+<polyline points="395.0,810.0 429.0,810.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="439.0" y="815.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">数据流（一条箭头列多个名称 = 同方向的多条数据流合画）</text>
+<text x="32.0" y="850.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">不画成外部实体：供应商（文档里没有这个角色，进货不在范围）；Python 定价脚本（在系统内，即一层图 P4）；定时器（每小时只读扫描，是 P2 的内部动作）。</text>
+<text x="32.0" y="872.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">推送只是系统内的站内记录，不接微信/短信；全店群发文案由店主自己转发到微信群。“推送打开回执”在演示中由工作台代为标记。</text></svg>

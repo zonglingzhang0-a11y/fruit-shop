@@ -2,12 +2,16 @@ package com.fruit.shop.batch;
 
 import com.fruit.shop.batch.dto.BatchCreateRequest;
 import com.fruit.shop.batch.dto.BatchCreateResponse;
+import com.fruit.shop.batch.dto.BatchScrapRequest;
+import com.fruit.shop.batch.dto.BatchScrapResponse;
+import com.fruit.shop.batch.dto.InStockBatchRow;
 import com.fruit.shop.batch.dto.NearExpiryRow;
 import com.fruit.shop.batch.dto.OnSaleRow;
 import com.fruit.shop.support.ApiResult;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,16 +28,27 @@ public class BatchController {
 
     private final BatchService batchService;
     private final OnSaleService onSaleService;
+    private final BatchScrapService scrapService;
 
-    public BatchController(BatchService batchService, OnSaleService onSaleService) {
+    public BatchController(BatchService batchService, OnSaleService onSaleService, BatchScrapService scrapService) {
         this.batchService = batchService;
         this.onSaleService = onSaleService;
+        this.scrapService = scrapService;
     }
 
     /** 2. 登记到货批次。 */
     @PostMapping
     public ApiResult<BatchCreateResponse> create(@Valid @RequestBody BatchCreateRequest request) {
         return ApiResult.ok(batchService.create(request));
+    }
+
+    /**
+     * 2b. 报废人工登记（FR-06）：系统不自动淘汰任何批次，过期、腐烂的货由人在这里登记。
+     * qty 不传 = 整批报废（置 SCRAPPED、移出临期清单）；报废量计入给该批次定价的策略的当日损耗。
+     */
+    @PostMapping("/{id}/scrap")
+    public ApiResult<BatchScrapResponse> scrap(@PathVariable("id") Long id, @Valid @RequestBody BatchScrapRequest request) {
+        return ApiResult.ok(scrapService.scrap(id, request));
     }
 
     /** 3. 临期清单（days 默认取 app.pricing.near-expiry-days=2；含临期判定指标）。 */
@@ -50,6 +65,18 @@ public class BatchController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
             @RequestParam(required = false) Integer days) {
         return ApiResult.ok(batchService.atRiskList(bizDate, days));
+    }
+
+    /**
+     * 3d. 某单品有库存的在售批次（销售回流录入页"选批次"用），顺序与回流不指定批次时的 FIFO 自动挑选一致。
+     * {@code includeSoldOut=true}（退货用）时在后面追加最近的已售罄批次。只读。
+     */
+    @GetMapping("/in-stock")
+    public ApiResult<List<InStockBatchRow>> inStock(
+            @RequestParam Long itemId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bizDate,
+            @RequestParam(defaultValue = "false") boolean includeSoldOut) {
+        return ApiResult.ok(batchService.inStock(itemId, bizDate, includeSoldOut));
     }
 
     /**

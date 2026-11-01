@@ -1,6 +1,6 @@
 """只读导出参考架构 Excel 的全部内容（不改动原文件）。
 
-用法: & 'C:\\Python314\\python.exe' scripts/_read_ref_arch.py
+用法: python scripts/_read_ref_arch.py
 """
 from __future__ import annotations
 

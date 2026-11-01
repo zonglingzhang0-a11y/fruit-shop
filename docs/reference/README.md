@@ -19,7 +19,7 @@
 
 - 如果后续需要更新参考架构：**直接改本目录的 xlsx**，然后重跑导出脚本刷新 Markdown：
   ```powershell
-  & 'C:\Python314\python.exe' scripts/export_reference_arch.py
+  python scripts/export_reference_arch.py
   ```
 - 参考架构与**我们自己的设计取舍**要分开看：差异、补齐口径与验收证据都在
   [`docs/07-与参考架构的差异与补齐.md`](../07-与参考架构的差异与补齐.md)，那份才是本项目的设计文档。

@@ -11,7 +11,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 纯函数级测试：候选折扣档、不涨价、RULE 分档映射。
+ * 纯函数级测试：候选折扣档、不涨价、RULE 打分。
  * 不启 Spring 容器（毫秒级），把"业务规则"和"数据库/HTTP"解耦开。
  */
 class PricingPolicyTest {
@@ -53,26 +53,33 @@ class PricingPolicyTest {
     }
 
     @Test
-    @DisplayName("RULE 分档：0 天 5 折、1 天 6 折、2 天 7 折、3 天 8 折、4 天以上 9 折")
-    void ruleDiscountMapping() {
-        assertThat(RuleBasedPricingStrategy.baseDiscount(0)).isEqualByComparingTo("0.50");
-        assertThat(RuleBasedPricingStrategy.baseDiscount(-3)).isEqualByComparingTo("0.50");
-        assertThat(RuleBasedPricingStrategy.baseDiscount(1)).isEqualByComparingTo("0.60");
-        assertThat(RuleBasedPricingStrategy.baseDiscount(2)).isEqualByComparingTo("0.70");
-        assertThat(RuleBasedPricingStrategy.baseDiscount(3)).isEqualByComparingTo("0.80");
-        assertThat(RuleBasedPricingStrategy.baseDiscount(7)).isEqualByComparingTo("0.90");
-        for (int days = -2; days <= 10; days++) {
-            assertThat(PricingPolicy.isCandidate(RuleBasedPricingStrategy.baseDiscount(days))).isTrue();
-            assertThat(RuleBasedPricingStrategy.baseDiscount(days)).isLessThanOrEqualTo(BigDecimal.ONE);
+    @DisplayName("RULE 打分：与 pricing_rule.py 自检的典型场景逐个一致（完整边界用例见 PricingRuleContractTest）")
+    void ruleScoreMatchesTypicalScenarios() {
+        // (剩余天数, 现存, 到货量, 保质期) → 期望折扣、紧迫度、库存压力
+        assertRule(7, "40", "40", 7, "1.00", 0, 0);   // 刚到货：新鲜货不打折
+        assertRule(5, "40", "40", 7, "1.00", 0, 0);   // 未进临期窗口：不计库存压力
+        assertRule(3, "38", "40", 7, "0.70", 1, 3);   // 剩 3 天但库存几乎没动：1 + 3 = 4 分 → 7 折
+        assertRule(2, "10", "40", 7, "0.90", 2, 0);   // 临期但只剩 25%：压力 0 → 9 折
+        assertRule(2, "35", "40", 7, "0.70", 2, 3);   // 临期且库存压手：2 + 3 = 5 分 → 7 折
+        assertRule(1, "5", "40", 7, "0.70", 3, 0);    // 最后可售日：至少 7 折
+        assertRule(0, "20", "40", 7, "0.50", 4, 2);   // 今天到期：4 + 2 + 寿命 1 = 7 分 → 5 折（底线另由 PricingService 套）
+        assertRule(1, "0", "40", 7, "1.00", 0, 0);    // 无库存：无需定价
+        // 看的是"还剩几成"而不是绝对份数：同样剩 25 份，卖掉 75% 的批次只打 9 折，一份没卖的打 7 折
+        assertRule(2, "25", "100", 7, "0.90", 2, 0);
+        assertRule(2, "25", "25", 7, "0.70", 2, 3);
+        for (int days = -2; days <= 12; days++) {
+            BigDecimal rate = RuleBasedPricingStrategy.score(days, new BigDecimal("30"), new BigDecimal("40"), 7).rate();
+            assertThat(PricingPolicy.isCandidate(rate)).as("days=%d → %s", days, rate).isTrue();
         }
     }
 
-    @Test
-    @DisplayName("再降一档：最低到 5 折就停住")
-    void oneStepLowerStopsAtFloor() {
-        assertThat(PricingPolicy.oneStepLower(new BigDecimal("0.70"))).isEqualByComparingTo("0.60");
-        assertThat(PricingPolicy.oneStepLower(new BigDecimal("0.50"))).isEqualByComparingTo("0.50");
-        assertThat(PricingPolicy.oneStepLower(new BigDecimal("1.00"))).isEqualByComparingTo("0.90");
+    private static void assertRule(int daysLeft, String remain, String init, int shelfLife,
+                                   String rate, int urgency, int pressure) {
+        RuleBasedPricingStrategy.RuleScore s = RuleBasedPricingStrategy.score(
+                daysLeft, new BigDecimal(remain), new BigDecimal(init), shelfLife);
+        assertThat(s.rate()).as("days=%d remain=%s/%s", daysLeft, remain, init).isEqualByComparingTo(rate);
+        assertThat(s.urgency()).isEqualTo(urgency);
+        assertThat(s.pressure()).isEqualTo(pressure);
     }
 
     @Test

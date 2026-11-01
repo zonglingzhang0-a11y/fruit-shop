@@ -11,10 +11,10 @@
     release/figs/traffic_hourly.png               时段分布校准图
     release/figs/price_vs_qty.png                 价格-销量校准图
 
-用法（必须用 C:\\Python314\\python.exe；PATH 上的 python 是残缺的 DSH 运行时，缺 scipy/matplotlib）：
+用法（需要 requirements.txt 里的依赖，尤其是 scipy / matplotlib）：
     $OutputEncoding=[Text.Encoding]::UTF8; [Console]::OutputEncoding=[Text.Encoding]::UTF8; chcp 65001
-    & 'C:\\Python314\\python.exe' scripts/calibrate_from_public.py
-    & 'C:\\Python314\\python.exe' scripts/calibrate_from_public.py --skip-figs
+    python scripts/calibrate_from_public.py
+    python scripts/calibrate_from_public.py --skip-figs
 
 统计口径（写死在本文件里，改动必须同步 docs/02 第 1 节）：
   1. 一行 sales_detail = 一条销售流水行。公开数据**没有订单号、没有会员号**，

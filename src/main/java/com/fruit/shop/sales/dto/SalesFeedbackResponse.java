@@ -36,5 +36,9 @@ public record SalesFeedbackResponse(
         Long pushLogId,
         boolean convertedByPush,
         int convertWindowHours,
-        String attributionNote) {
+        String attributionNote,
+        /** 本次请求的业务流水号（未传为 null）。 */
+        String requestNo,
+        /** true = 该流水号已经记过账，本次没有重复扣库存、没有重复写流水与统计，返回的是首次那笔的记录。 */
+        boolean duplicate) {
 }

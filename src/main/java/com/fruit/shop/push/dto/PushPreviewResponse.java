@@ -60,5 +60,12 @@ public record PushPreviewResponse(
         /** 计划 audience 的会员 id（按偏好分降序；发送时按同一规则复算）。 */
         List<Long> candidateMemberIds,
         /** 计划说明：本条预览写了什么、没写什么（合规口径，避免"预览偷偷发消息"）。 */
-        String planNote) {
+        String planNote,
+        // ---------------- 价格口径（Issue #1：推送价必须与店主确认价一致）----------------
+        /** 价格来源：CONFIRMED=店主确认价（与 H5 一致）；UNCONFIRMED=尚无确认价，按折扣试算且已套最低折扣线。 */
+        String priceSource,
+        /** priceSource=CONFIRMED 时对应的 pricing_decision.id。 */
+        Long priceDecisionId,
+        /** 价格口径说明（中文人话）。 */
+        String priceNote) {
 }

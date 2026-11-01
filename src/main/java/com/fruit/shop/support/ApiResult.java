@@ -20,6 +20,7 @@ public class ApiResult<T> {
     public static final int CODE_BAD_REQUEST = 400;
     public static final int CODE_NOT_FOUND = 404;
     public static final int CODE_METHOD_NOT_ALLOWED = 405;
+    public static final int CODE_CONFLICT = 409;
     public static final int CODE_SERVER_ERROR = 500;
 
     private int code;

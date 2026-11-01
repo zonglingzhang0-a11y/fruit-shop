@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','WenQuanYi Zen Hei',sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker><marker id="arrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker></defs><rect width="1600" height="900" fill="#fff"/><text x="32.0" y="42.0" font-size="24" fill="#303133" text-anchor="start" font-weight="600">业务流程图（现状 As-Is）</text>
+<text x="32.0" y="70.0" font-size="14" fill="#606266" text-anchor="start" font-weight="400">店里现在怎么处理临期果品：信息只留在记忆、价格牌、微信群和收款 App 里，没有台账</text>
+<rect x="312.0" y="21.0" width="170.0" height="28.0" rx="14" fill="#fdf0ef" stroke="#c0392b" stroke-width="1.4"/>
+<text x="322.0" y="40.0" font-size="15" fill="#c0392b" text-anchor="start" font-weight="600">（假设，待访谈验证）</text>
+<text x="1568.0" y="70.0" font-size="13" fill="#909399" text-anchor="end" font-weight="400">依据：docs/04 §2 角色表、§3 现状（全部为 C 类假设）</text>
+<rect x="20.0" y="100.0" width="1560.0" height="252.0" rx="0" fill="#fafbfc" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="352.0" x2="1580.0" y2="352.0" stroke="#c0c4cc" stroke-width="1.2"/>
+<rect x="37.0" y="201.0" width="92.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="32.0" y="196.0" width="92.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="78.0" y="222.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店主</text>
+<text x="78.0" y="258.0" font-size="12" fill="#909399" text-anchor="middle" font-weight="400">决策者</text>
+<rect x="20.0" y="352.0" width="1560.0" height="180.0" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="532.0" x2="1580.0" y2="532.0" stroke="#c0c4cc" stroke-width="1.2"/>
+<rect x="37.0" y="417.0" width="92.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="32.0" y="412.0" width="92.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="78.0" y="438.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店员</text>
+<text x="78.0" y="474.0" font-size="12" fill="#909399" text-anchor="middle" font-weight="400">执行者</text>
+<rect x="20.0" y="532.0" width="1560.0" height="120.0" rx="0" fill="#fafbfc" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="652.0" x2="1580.0" y2="652.0" stroke="#c0c4cc" stroke-width="1.2"/>
+<rect x="37.0" y="567.0" width="92.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="32.0" y="562.0" width="92.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="78.0" y="588.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">常客会员</text>
+<text x="78.0" y="624.0" font-size="12" fill="#909399" text-anchor="middle" font-weight="400">微信群成员</text>
+<rect x="20.0" y="652.0" width="1560.0" height="120.0" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="772.0" x2="1580.0" y2="772.0" stroke="#c0c4cc" stroke-width="1.2"/>
+<rect x="37.0" y="687.0" width="92.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="32.0" y="682.0" width="92.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="78.0" y="708.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">路过客</text>
+<text x="78.0" y="744.0" font-size="12" fill="#909399" text-anchor="middle" font-weight="400">不入系统</text>
+<rect x="20.0" y="100.0" width="1560.0" height="672.0" rx="0" fill="none" stroke="#909399" stroke-width="1.4"/>
+<line x1="136.0" y1="100.0" x2="136.0" y2="772.0" stroke="#c0c4cc" stroke-width="1.2"/>
+<rect x="159.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="222.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">到货上架</text>
+<text x="222.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">不登记批次/到货日</text>
+<text x="222.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">（店主或店员）</text>
+<rect x="317.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="380.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">判断临期</text>
+<text x="380.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">看着不新鲜</text>
+<text x="380.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">才处理</text>
+<rect x="475.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="538.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">定降价幅度</text>
+<text x="538.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">凭手感：</text>
+<text x="538.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">看货·看天·看心情</text>
+<rect x="633.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="696.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">群发通知</text>
+<text x="696.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">到货新品、特价</text>
+<text x="696.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">（或干脆不发）</text>
+<path d="M791.0,151.0 H917.0 V204.3 C885.5,190.4 822.5,219.9 791.0,204.3 Z" fill="#fdf0ef" stroke="#303133" stroke-width="1.6"/>
+<text x="854.0" y="182.6" font-size="14" fill="#303133" text-anchor="middle" font-weight="400">微信群消息</text>
+<rect x="1265.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="1328.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">剩货处理</text>
+<text x="1328.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">降价/搭售</text>
+<text x="1328.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">送人自吃/扔掉</text>
+<rect x="1423.0" y="148.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="1486.0" y="169.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">判断效果</text>
+<text x="1486.0" y="186.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">群里有人回吗？</text>
+<text x="1486.0" y="203.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">当天有人来吗？</text>
+<rect x="160.0" y="270.0" width="400.0" height="46.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="160.0" y1="270.0" x2="560.0" y2="270.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="160.0" y1="316.0" x2="560.0" y2="316.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="160.0" y1="270.0" x2="160.0" y2="316.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="200.0" y1="270.0" x2="200.0" y2="316.0" stroke="#303133" stroke-width="1.2"/>
+<text x="180.0" y="298.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">记忆</text>
+<text x="380.0" y="297.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">到货日 · 新鲜度判断 · 降价手感（只在店主脑子里）</text>
+<rect x="790.0" y="270.0" width="300.0" height="46.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="790.0" y1="270.0" x2="1090.0" y2="270.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="790.0" y1="316.0" x2="1090.0" y2="316.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="790.0" y1="270.0" x2="790.0" y2="316.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="830.0" y1="270.0" x2="830.0" y2="316.0" stroke="#303133" stroke-width="1.2"/>
+<text x="810.0" y="298.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">微信</text>
+<text x="960.0" y="297.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">顾客微信群（消息、回复）</text>
+<line x1="1250.0" y1="270.0" x2="1430.0" y2="270.0" stroke="#606266" stroke-width="1.5" stroke-dasharray="6 4"/>
+<line x1="1250.0" y1="316.0" x2="1430.0" y2="316.0" stroke="#606266" stroke-width="1.5" stroke-dasharray="6 4"/>
+<line x1="1250.0" y1="270.0" x2="1250.0" y2="316.0" stroke="#606266" stroke-width="1.5" stroke-dasharray="6 4"/>
+<line x1="1290.0" y1="270.0" x2="1290.0" y2="316.0" stroke="#606266" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="1270.0" y="298.0" font-size="12" fill="#c0392b" text-anchor="middle" font-weight="600">无</text>
+<text x="1360.0" y="289.1" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">批次台账</text>
+<text x="1360.0" y="306.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">损耗记录</text>
+<polyline points="285.0,181.0 317.0,181.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="443.0,181.0 475.0,181.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="601.0,181.0 633.0,181.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="759.0,181.0 791.0,181.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="222.0,214.0 222.0,270.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="230.0" y="247.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">靠记</text>
+<polyline points="380.0,270.0 380.0,214.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="520.0,270.0 520.0,214.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="388.0" y="247.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">凭经验</text>
+<polyline points="854.0,207.0 854.0,270.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="862.0" y="247.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">发到群里</text>
+<polyline points="1060.0,270.0 1060.0,124.0 1486.0,124.0 1486.0,148.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1270.0" y="118.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">看群里有没有人回</text>
+<polyline points="1328.0,214.0 1328.0,270.0" fill="none" stroke="#606266" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<text x="1336.0" y="247.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">不记录</text>
+<rect x="633.0" y="409.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="696.0" y="430.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">改价格牌</text>
+<text x="696.0" y="447.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">划掉原价写现价</text>
+<text x="696.0" y="464.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">或直接写新价</text>
+<path d="M791.0,410.0 H917.0 V465.0 C885.5,450.7 822.5,481.2 791.0,465.0 Z" fill="#fdf0ef" stroke="#303133" stroke-width="1.6"/>
+<text x="854.0" y="433.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">价格牌</text>
+<text x="854.0" y="450.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">手写/白板/打印</text>
+<rect x="1107.0" y="409.0" width="126.0" height="66.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="1170.0" y="438.5" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">收银</text>
+<text x="1170.0" y="455.5" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">扫码收款</text>
+<path d="M1265.0,410.0 H1391.0 V465.0 C1359.5,450.7 1296.5,481.2 1265.0,465.0 Z" fill="#fdf0ef" stroke="#303133" stroke-width="1.6"/>
+<text x="1328.0" y="433.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">收款记录</text>
+<text x="1328.0" y="450.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">（仅金额）</text>
+<rect x="1423.0" y="419.0" width="126.0" height="46.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1423.0" y1="419.0" x2="1549.0" y2="419.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1423.0" y1="465.0" x2="1549.0" y2="465.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1423.0" y1="419.0" x2="1423.0" y2="465.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1463.0" y1="419.0" x2="1463.0" y2="465.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1443.0" y="447.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">App</text>
+<text x="1506.0" y="446.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">收款 App</text>
+<polyline points="585.0,214.0 585.0,442.0 633.0,442.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="577.0" y="400.0" font-size="13" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">口头告知新价</text>
+<polyline points="759.0,442.0 791.0,442.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="1233.0,442.0 1265.0,442.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="1391.0,438.0 1423.0,438.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="1170.0,409.0 1170.0,181.0 1265.0,181.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1178.0" y="247.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">卖不完的货</text>
+<rect x="949.0" y="561.0" width="126.0" height="62.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="1012.0" y="580.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">获知特价</text>
+<text x="1012.0" y="597.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">看群消息</text>
+<text x="1012.0" y="614.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">或到店问</text>
+<rect x="949.0" y="685.0" width="126.0" height="54.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<text x="1012.0" y="708.5" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">获知价格</text>
+<text x="1012.0" y="725.5" font-size="13" fill="#606266" text-anchor="middle" font-weight="400">只看价格牌</text>
+<polyline points="1012.0,316.0 1012.0,561.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="854.0,468.0 854.0,712.0 949.0,712.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="1075.0,592.0 1140.0,592.0 1140.0,475.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1107.0" y="584.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">到店购买</text>
+<polyline points="1075.0,712.0 1200.0,712.0 1200.0,475.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1137.0" y="704.0" font-size="13" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">购买</text>
+<circle cx="439.0" cy="150.0" r="11" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="439.0" y="154.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+<circle cx="597.0" cy="150.0" r="11" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="597.0" y="154.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">2</text>
+<circle cx="1426.0" cy="272.0" r="11" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="1426.0" y="276.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">3</text>
+<text x="32.0" y="805.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">图例</text>
+<rect x="79.0" y="793.0" width="34.0" height="20.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="76.0" y="790.0" width="34.0" height="20.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.3"/>
+<text x="120.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">业务处理单位（泳道）</text>
+<rect x="280.0" y="790.0" width="34.0" height="20.0" rx="6" fill="#eefaf4" stroke="#303133" stroke-width="1.3"/>
+<text x="324.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">业务处理</text>
+<path d="M406.0,789.0 H440.0 V808.8 C431.5,803.6 414.5,814.6 406.0,808.8 Z" fill="#fdf0ef" stroke="#303133" stroke-width="1.6"/>
+<text x="423.0" y="799.2" font-size="1" fill="#303133" text-anchor="middle" font-weight="400"></text>
+<text x="450.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">单据</text>
+<rect x="506.0" y="790.0" width="48.0" height="20.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="506.0" y1="790.0" x2="554.0" y2="790.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="506.0" y1="810.0" x2="554.0" y2="810.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="506.0" y1="790.0" x2="506.0" y2="810.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="528.0" y1="790.0" x2="528.0" y2="810.0" stroke="#303133" stroke-width="1"/>
+<text x="564.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">数据存储（左格为存放处）</text>
+<polyline points="750.0,800.0 784.0,800.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="794.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">信息/实物传递</text>
+<line x1="909.3" y1="790.0" x2="943.3" y2="790.0" stroke="#606266" stroke-width="1.3" stroke-dasharray="5 3"/>
+<line x1="909.3" y1="810.0" x2="943.3" y2="810.0" stroke="#606266" stroke-width="1.3" stroke-dasharray="5 3"/>
+<line x1="909.3" y1="790.0" x2="909.3" y2="810.0" stroke="#606266" stroke-width="1.3" stroke-dasharray="5 3"/>
+<text x="953.3" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">虚线：现状没有记录</text>
+<circle cx="1111.3" cy="800.0" r="10" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="1111.3" y="804.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+<text x="1130.3" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">痛点编号（见下）</text>
+<text x="32.0" y="852.0" font-size="14" fill="#303133" text-anchor="start" font-weight="600">痛点（均为假设，待访谈验证）：</text>
+<circle cx="256.0" cy="847.0" r="10" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="256.0" y="851.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+<text x="272.0" y="852.0" font-size="14" fill="#303133" text-anchor="start" font-weight="400">靠“看着不新鲜”才发现临期，处理时已晚</text>
+<circle cx="570.0" cy="847.0" r="10" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="570.0" y="851.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">2</text>
+<text x="586.0" y="852.0" font-size="14" fill="#303133" text-anchor="start" font-weight="400">降价凭手感：降多了心疼，降少了卖不掉</text>
+<circle cx="870.0" cy="847.0" r="10" fill="#c0392b" stroke="#fff" stroke-width="2"/>
+<text x="870.0" y="851.5" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">3</text>
+<text x="886.0" y="852.0" font-size="14" fill="#303133" text-anchor="start" font-weight="400">到货、剩货都不记录，没有任何一步留下可分析的数据</text>
+<text x="32.0" y="880.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">注：本图只画店内环节；供应商与进货不在本项目范围（docs/04 §10），不画。</text></svg>

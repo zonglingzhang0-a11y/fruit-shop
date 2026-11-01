@@ -179,6 +179,32 @@ class SalesServiceTest {
     }
 
     @Test
+    @DisplayName("退货不指定原批次：直接 400，不会按先进先出回补到别的批次")
+    void returnWithoutBatchIsRejected() {
+        LocalDate bizDate = LocalDate.of(2035, 4, 4);
+        FruitItem item = ShopFixtures.item(itemMapper, "退货无批次果", "测试退货类", "4.00", "10.00", 5);
+        FruitBatch sold = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(3), 5, "5", "4.00");
+        FruitBatch other = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(1), 5, "5", "4.00");
+        salesService.feedback(feedback(bizDate, item.getId(), sold.getId(), "5", "8.00"));
+
+        assertThatThrownBy(() -> salesService.feedback(feedback(bizDate, item.getId(), null, "-2", "8.00")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("原批次");
+        SalesFeedbackRequest flagged = feedback(bizDate, item.getId(), null, "2", "8.00");
+        flagged.setIsReturn(true);
+        assertThatThrownBy(() -> salesService.feedback(flagged))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("原批次");
+
+        // 两个批次的库存都没动，也没有写退货流水
+        assertThat(batchMapper.selectById(sold.getId()).getRemainQty()).isEqualByComparingTo("0");
+        assertThat(batchMapper.selectById(other.getId()).getRemainQty()).isEqualByComparingTo("5");
+        assertThat(salesMapper.selectCount(Wrappers.<SalesRecord>lambdaQuery()
+                .eq(SalesRecord::getItemId, item.getId())
+                .eq(SalesRecord::getIsReturn, true))).isZero();
+    }
+
+    @Test
     @DisplayName("不传 batchId 时按 FIFO 自动挑最早到期的在售批次")
     void feedbackWithoutBatchIdPicksFifoBatch() {
         LocalDate bizDate = LocalDate.of(2035, 4, 4);
@@ -218,6 +244,36 @@ class SalesServiceTest {
         assertThat(effect.daily().get(0).strategy()).isEqualTo("REAL");
         assertThat(effect.note()).contains("sales_record");
         assertThat(effect.byStrategy()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("效果看板：各策略的缺货率按各自的日统计平均，不是全部策略的总平均")
+    void effectStockoutRateIsPerStrategy() {
+        LocalDate day = LocalDate.of(2035, 5, 10);
+        insertStat(day, "RULE", "0.1000");
+        insertStat(day.plusDays(1), "RULE", "0.3000");
+        insertStat(day, "MODEL", "0.0500");
+
+        EffectResponse effect = salesService.effect(day, day.plusDays(1), null);
+
+        assertThat(effect.byStrategy()).extracting(s -> s.strategy() + "=" + s.stockoutRate().toPlainString())
+                .containsExactlyInAnyOrder("RULE=0.2000", "MODEL=0.0500");
+        // 总体缺货率仍是全部日统计行的平均：(0.1 + 0.3 + 0.05) / 3
+        assertThat(effect.stockoutRate()).isEqualByComparingTo("0.1500");
+    }
+
+    private void insertStat(LocalDate day, String strategy, String stockoutRate) {
+        StrategyDailyStat stat = new StrategyDailyStat();
+        stat.setBizDate(day);
+        stat.setStrategy(strategy);
+        stat.setSoldQty(new BigDecimal("10"));
+        stat.setScrapQty(BigDecimal.ONE);
+        stat.setRevenue(new BigDecimal("100"));
+        stat.setCost(new BigDecimal("60"));
+        stat.setGrossProfit(new BigDecimal("40"));
+        stat.setScrapRate(new BigDecimal("0.0909"));
+        stat.setStockoutRate(new BigDecimal(stockoutRate));
+        statMapper.insert(stat);
     }
 
     @Test

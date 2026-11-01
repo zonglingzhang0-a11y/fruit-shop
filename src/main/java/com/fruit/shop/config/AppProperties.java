@@ -34,12 +34,6 @@ public class AppProperties {
         /** 临期阈值（天）：days_left <= 该值进入临期清单。 */
         private int nearExpiryDays = 2;
 
-        /** FIXED 策略的固定折扣档（会向下对齐到候选档）。 */
-        private BigDecimal fixedDiscount = new BigDecimal("0.70");
-
-        /** RULE 策略的"存量压力"阈值：现存可售量大于该值时再多降一档。 */
-        private BigDecimal pressureQtyThreshold = new BigDecimal("20");
-
         /** MODEL 策略读取的模型产物（Python 侧生成）；文件不存在时自动回退 RULE。 */
         private String modelFile = "./data/seed/pricing_model.json";
 
@@ -53,7 +47,7 @@ public class AppProperties {
         private BigDecimal minDiscountRate = PricingPolicy.DEFAULT_MIN_DISCOUNT_RATE;
 
         /**
-         * 同一批次每天最多调价次数（docs/07 第 1 节 B），默认 2；第 3 次调价会被拒绝并给出人话原因。
+         * 同一单品每天最多调价次数（docs/07 第 1 节 B；一个单品一天一个价签），默认 2；第 3 次调价会被拒绝并给出人话原因。
          * yml 键 {@code app.pricing.max-adjust-per-day}。
          */
         private int maxAdjustPerDay = PricingPolicy.DEFAULT_MAX_ADJUST_PER_DAY;

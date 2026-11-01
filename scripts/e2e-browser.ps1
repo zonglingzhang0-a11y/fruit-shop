@@ -7,7 +7,7 @@
     2. **轮询等待数据真正就绪**（不只是 /api/health 通——种子导入发生在 ApplicationRunner 里，
        health 先通、数据后到；这一点踩过一次坑，见下）
     3. 启动前端构建产物的预览服务（vite preview，/api 代理到后端端口）
-    4. 用 Playwright 打开 5 个页面：记录控制台错误与失败请求，逐页截图
+    4. 用 Playwright 打开 7 个页面（工作台 6 个 + 顾客端 H5）：记录控制台错误与失败请求，逐页截图
     5. 关闭两个进程
 
   用法： powershell -ExecutionPolicy Bypass -File scripts/e2e-browser.ps1 [-SkipPackage]
@@ -183,5 +183,5 @@ Get-Process -Name java -ErrorAction SilentlyContinue |
 
 Write-Host ''
 if ($shotExit -ne 0) { Write-Host '浏览器验证：存在问题（见上方报告）' -ForegroundColor Red; exit 1 }
-Write-Host '浏览器验证：5 个页面全部正常渲染，无控制台报错、无失败请求' -ForegroundColor Green
+Write-Host '浏览器验证：7 个页面全部正常渲染，无控制台报错、无失败请求' -ForegroundColor Green
 exit 0

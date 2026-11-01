@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import { defaultBizDate } from '../utils/bizDate'
+import { notifyGenerateResult } from '../utils/generateResult'
 
 const loading = ref(false)
 const rows = ref([])
@@ -19,6 +20,43 @@ const form = ref({
   costPrice: 5
 })
 const submitting = ref(false)
+
+// FR-06 报废人工登记：系统不自动淘汰，过期/腐烂的货由人在这里登记（整批报废后移出临期清单）
+const SCRAP_REASONS = ['已过期', '腐烂变质', '磕碰损伤', '运输压坏']
+const scrapVisible = ref(false)
+const scrapping = ref(false)
+const scrapRow = ref(null)
+const scrapForm = ref({ whole: true, qty: 1, reason: '', operator: '店员' })
+
+function openScrap(row) {
+  scrapRow.value = row
+  scrapForm.value = { whole: true, qty: Number(row.remainQty) || 1, reason: row.daysLeft < 0 ? '已过期' : '', operator: '店员' }
+  scrapVisible.value = true
+}
+
+async function submitScrap() {
+  const reason = (scrapForm.value.reason || '').trim()
+  if (!reason) {
+    ElMessage.warning('请写明报废原因')
+    return
+  }
+  scrapping.value = true
+  try {
+    const res = await api.scrapBatch(scrapRow.value.batchId, {
+      bizDate: bizDate.value,
+      qty: scrapForm.value.whole ? undefined : scrapForm.value.qty,
+      reason,
+      operator: scrapForm.value.operator
+    })
+    ElMessage.success(res?.message || '已登记报废')
+    scrapVisible.value = false
+    await load()
+  } catch (e) {
+    // 错误提示由拦截器统一处理（例如报废量超过现存）
+  } finally {
+    scrapping.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -61,7 +99,7 @@ function freshnessType(v) {
 async function generate(strategy) {
   try {
     const res = await api.generateSuggestions({ bizDate: bizDate.value, strategy })
-    ElMessage.success(`已生成 ${res?.generated ?? ''} 条 ${strategy} 建议，请到「定价建议」页确认`)
+    notifyGenerateResult(res, strategy)
   } catch (e) {
     // 错误提示由拦截器统一处理
   }
@@ -81,7 +119,7 @@ onMounted(load)
     <el-card shadow="never">
       <div class="toolbar">
         <span>营业日</span>
-        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" style="width: 150px" />
+        <el-date-picker v-model="bizDate" type="date" value-format="YYYY-MM-DD" :clearable="false" style="width: 150px" />
         <span>临期阈值（天）</span>
         <el-input-number v-model="days" :min="0" :max="10" />
         <el-button type="primary" :loading="loading" @click="load">查询</el-button>
@@ -148,8 +186,45 @@ onMounted(load)
             <span class="muted">{{ row.metricsReason || '标准口径（近 7 天日均销量）' }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="danger" plain @click="openScrap(row)">登记报废</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
+
+    <el-dialog v-model="scrapVisible" title="登记报废" width="460px">
+      <template v-if="scrapRow">
+        <p class="page-desc" style="margin-top: 0">
+          {{ scrapRow.itemName }} · 批次 {{ scrapRow.batchNo }} · 现存 {{ scrapRow.remainQty }} · 剩余 {{ scrapRow.daysLeft }} 天
+        </p>
+        <el-form :model="scrapForm" label-width="80px">
+          <el-form-item label="报废量">
+            <el-radio-group v-model="scrapForm.whole">
+              <el-radio :value="true">整批（{{ scrapRow.remainQty }}）</el-radio>
+              <el-radio :value="false">部分</el-radio>
+            </el-radio-group>
+            <el-input-number v-if="!scrapForm.whole" v-model="scrapForm.qty" :min="0.01"
+                             :max="Number(scrapRow.remainQty)" :precision="2" :step="1" style="margin-top: 8px" />
+          </el-form-item>
+          <el-form-item label="原因" required>
+            <el-select v-model="scrapForm.reason" filterable allow-create default-first-option
+                       placeholder="选择或输入原因" style="width: 100%">
+              <el-option v-for="r in SCRAP_REASONS" :key="r" :label="r" :value="r" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="登记人">
+            <el-input v-model="scrapForm.operator" maxlength="32" />
+          </el-form-item>
+        </el-form>
+        <p class="muted">整批报废后批次移出临期清单；报废量计入给这批定价的策略的当日损耗，看板的损耗率随之更新。</p>
+      </template>
+      <template #footer>
+        <el-button @click="scrapVisible = false">取消</el-button>
+        <el-button type="danger" :loading="scrapping" @click="submitScrap">确认报废</el-button>
+      </template>
+    </el-dialog>
 
     <el-card shadow="never" style="margin-top: 16px">
       <template #header>登记到货批次（演示用）</template>

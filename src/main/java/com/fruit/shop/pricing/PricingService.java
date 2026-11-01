@@ -22,6 +22,7 @@ import com.fruit.shop.pricing.mapper.PricingSuggestionMapper;
 import com.fruit.shop.pricing.strategy.PricingContext;
 import com.fruit.shop.pricing.strategy.PricingProposal;
 import com.fruit.shop.pricing.strategy.PricingStrategy;
+import com.fruit.shop.pricing.strategy.ModelPricingStrategy;
 import com.fruit.shop.support.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,7 @@ public class PricingService {
     public static final int REJECT_REASON_MAX_LENGTH = 64;
 
     private final Map<String, PricingStrategy> strategies;
+    private final ModelPricingStrategy modelStrategy;
     private final PricingSuggestionMapper suggestionMapper;
     private final PricingDecisionMapper decisionMapper;
     private final FruitItemMapper itemMapper;
@@ -86,6 +88,8 @@ public class PricingService {
             map.put(strategy.code().toUpperCase(), strategy);
         }
         this.strategies = Map.copyOf(map);
+        this.modelStrategy = strategyBeans.stream().filter(ModelPricingStrategy.class::isInstance)
+                .map(ModelPricingStrategy.class::cast).findFirst().orElse(null);
         this.suggestionMapper = suggestionMapper;
         this.decisionMapper = decisionMapper;
         this.itemMapper = itemMapper;
@@ -111,18 +115,24 @@ public class PricingService {
     }
 
     /**
-     * 4. 生成定价建议：对每个临期批次按策略给出候选档位里的折扣与人话理由。
+     * 4. 生成定价建议：与离线评测同一口径——每个在售批次都按策略打分，**同一单品一天只挂一个价**（取最深的一档），
+     * 每个单品一条建议，挂在决定这个价的批次上（{@code batch_id}），理由里写明以哪一批为准。
      *
-     * <p>本轮还会：套用最低折扣线并留痕、按"每日调价上限"拒绝超出次数的批次、
-     * 把临期判定指标快照写进建议（事后可复核"为什么这天建议打折"）。
+     * <p>RULE / MODEL 只为需要打折的单品出建议（算下来是原价的单品不打扰店主）；FIXED 是"店主不降价"的对照组，
+     * 为每个在售单品出一条"维持原价"的建议，便于留痕和按策略统计。
+     * 本轮还会：套用最低折扣线并留痕、按"每个单品每天最多调价 N 次"拒绝超出次数的单品、把临期判定指标快照写进建议。
      */
     @Transactional
     public SuggestionGenerateResponse generate(SuggestionGenerateRequest request) {
         LocalDate bizDate = request.getBizDate() == null ? LocalDate.now() : request.getBizDate();
         String code = normalizeStrategy(request.getStrategy());
-        int threshold = batchService.resolveThreshold(request.getDays());
-        List<FruitBatch> batches = batchService.nearExpiryBatches(bizDate, threshold);
+        List<FruitBatch> batches = batchService.pricingBatches(bizDate);
         Map<Long, FruitItem> items = batchService.loadItems(batches);
+        // 同一单品的批次放在一起，组内保持到期日升序（并列最深时取最急的那批）
+        Map<Long, List<FruitBatch>> byItem = new LinkedHashMap<>();
+        for (FruitBatch batch : batches) {
+            byItem.computeIfAbsent(batch.getItemId(), k -> new ArrayList<>()).add(batch);
+        }
         PricingStrategy strategy = strategies.get(code);
         BigDecimal floor = props.minDiscountRate();
         int maxAdjust = adjustGuard.maxAdjustPerDay();
@@ -131,48 +141,104 @@ public class PricingService {
         LocalDateTime now = LocalDateTime.now().withNano(0);
 
         int generated = 0;
+        int atOriginalPrice = 0;
         List<String> limited = new ArrayList<>();
-        for (FruitBatch batch : batches) {
-            // 幂等优先：同一天同一策略同一批次已经生成过 → 跳过，且不占"调价次数"。
-            if (existingSuggestion(bizDate, code, batch.getId()) != null) {
-                continue;
-            }
-            FruitItem item = items.get(batch.getItemId());
+        Map<String, Integer> effectiveCounts = new LinkedHashMap<>();
+        // MODEL 当天早先回退了规则版、现在模型产物可用且覆盖了该单品（例如按提示重新导出了）：允许重新生成，算一次调价
+        ModelPricingStrategy.ModelStatus modelStatus =
+                "MODEL".equals(code) && modelStrategy != null ? modelStrategy.status(bizDate) : null;
+        int replacedFallbacks = 0;
+        Map<String, Integer> keptFallbacks = new LinkedHashMap<>();
+        for (Map.Entry<Long, List<FruitBatch>> group : byItem.entrySet()) {
+            FruitItem item = items.get(group.getKey());
             if (item == null) {
                 continue;
             }
             if (item.getBasePrice() == null || item.getBasePrice().compareTo(BigDecimal.ZERO) <= 0) {
-                log.warn("[pricing] 商品 {} 缺少原价，跳过批次 {}", item.getItemName(), batch.getBatchNo());
+                log.warn("[pricing] 商品 {} 缺少原价，跳过", item.getItemName());
                 continue;
             }
-            int adjustCount = adjustGuard.adjustCount(bizDate, batch.getId());
+            // 幂等优先：同一天同一策略同一单品已经生成过 → 跳过，且不占"调价次数"。
+            PricingSuggestion existing = existingSuggestion(bizDate, code, item.getId());
+            boolean replacing = false;
+            if (existing != null) {
+                boolean modelFallback = "MODEL".equals(code) && existing.getEffectiveStrategy() != null
+                        && !"MODEL".equals(existing.getEffectiveStrategy());
+                if (!modelFallback) {
+                    continue;
+                }
+                if (modelStatus == null || !modelStatus.usable()) {
+                    keptFallbacks.merge(modelStatus == null ? "模型策略未启用" : modelStatus.message(), 1, Integer::sum);
+                    continue;
+                }
+                if (hasDecision(existing.getId())) {
+                    keptFallbacks.merge("店主已对其做出决策", 1, Integer::sum);
+                    continue;
+                }
+                replacing = true;
+            }
+
+            // 逐批出价，再取最深的一档作为这个单品今天的价
+            List<FruitBatch> group0 = group.getValue();
+            List<PricingContext> contexts = new ArrayList<>();
+            List<PricingProposal> proposals = new ArrayList<>();
+            for (FruitBatch batch : group0) {
+                int daysLeft = BatchService.daysLeft(bizDate, batch.getExpireDate());
+                PricingContext context = new PricingContext(item, batch, bizDate, daysLeft,
+                        batch.getRemainQty(), item.getBasePrice(), batch.getCostPrice(), item.getCategoryName());
+                PricingProposal proposal = strategy.propose(context);
+                if (proposal == null || proposal.discountRate() == null) {
+                    log.warn("[pricing] 策略 {} 未给出折扣，跳过批次 {}", code, batch.getBatchNo());
+                    continue;
+                }
+                contexts.add(context);
+                proposals.add(proposal);
+            }
+            int pick = PricingPolicy.deepestIndex(proposals.stream().map(PricingProposal::discountRate).toList());
+            if (pick < 0) {
+                continue;
+            }
+            PricingContext context = contexts.get(pick);
+            PricingProposal proposal = proposals.get(pick);
+            FruitBatch batch = context.batch();
+            // 双保险：候选档 + 不许涨价（rule 3 / rule 4），任何策略越界都在这里被钳回来
+            BigDecimal rate = PricingPolicy.toCandidate(proposal.discountRate());
+            if (rate.compareTo(PricingPolicy.MAX_DISCOUNT) >= 0 && !"FIXED".equals(code)) {
+                atOriginalPrice++;
+                continue;
+            }
+            String effective = proposal.effectiveStrategy() == null ? code : proposal.effectiveStrategy();
+            if (replacing && !"MODEL".equals(effective)) {
+                keptFallbacks.merge("模型产物里仍没有该单品", 1, Integer::sum);
+                continue;
+            }
+            int adjustCount = adjustGuard.adjustCount(bizDate, item.getId());
             if (adjustCount >= maxAdjust) {
-                String reason = adjustGuard.limitReason(batch.getBatchNo(), bizDate, maxAdjust);
+                String reason = adjustGuard.limitReason(item.getItemName(), bizDate, maxAdjust);
                 limited.add(reason);
-                log.info("[pricing] 批次 {} 当天已调价 {} 次，达到上限，本次生成被拒绝", batch.getBatchNo(), adjustCount);
+                if (replacing) {
+                    keptFallbacks.merge("已达「同一单品每天最多调价 " + maxAdjust + " 次」的上限", 1, Integer::sum);
+                }
+                log.info("[pricing] 单品 {} 当天已调价 {} 次，达到上限，本次生成被拒绝", item.getItemName(), adjustCount);
                 continue;
             }
             int adjustSeq = adjustCount + 1;
 
-            int daysLeft = BatchService.daysLeft(bizDate, batch.getExpireDate());
             BatchMetrics metrics = metricsService.compute(bizDate, batch, window, now);
-            PricingContext context = new PricingContext(item, batch, bizDate, daysLeft,
-                    batch.getRemainQty(), item.getBasePrice(), batch.getCostPrice(), item.getCategoryName());
-
-            PricingProposal proposal = strategy.propose(context);
-            if (proposal == null || proposal.discountRate() == null) {
-                log.warn("[pricing] 策略 {} 未给出折扣，跳过批次 {}", code, batch.getBatchNo());
-                continue;
-            }
-            // 双保险：候选档 + 不许涨价（rule 3 / rule 4），任何策略越界都在这里被钳回来
-            BigDecimal rate = PricingPolicy.toCandidate(proposal.discountRate());
             BigDecimal original = PricingPolicy.round2(item.getBasePrice());
             // v2 定价约束 1/2：最低折扣线（对所有策略生效，FIXED/RULE/MODEL 一视同仁）
             PricingPolicy.FloorClamp clamp = PricingPolicy.applyFloor(rate, floor);
             rate = clamp.rate();
+            boolean floorHit = clamp.floorHit();
+            BigDecimal rawRate = clamp.rawRate();
+            // 策略自己已经在底线以内决策过（MODEL 导出时就这样做）：用它报告的"不受约束时的档位"留痕
+            if (!floorHit && proposal.rawDiscountRate() != null && proposal.rawDiscountRate().compareTo(floor) < 0) {
+                floorHit = true;
+                rawRate = PricingPolicy.toCandidate(proposal.rawDiscountRate());
+            }
             BigDecimal price = PricingPolicy.priceOf(original, rate);
             if (price.compareTo(original) > 0) {
-                log.warn("[pricing] 策略 {} 给出高于原价的建议价，已钳到原价（批次 {}）", code, batch.getBatchNo());
+                log.warn("[pricing] 策略 {} 给出高于原价的建议价，已钳到原价（单品 {}）", code, item.getItemName());
                 rate = PricingPolicy.MAX_DISCOUNT;
                 price = original;
             }
@@ -181,16 +247,42 @@ public class PricingService {
                 throw new BusinessException("策略 " + code + " 未给出 reason，违反「每条建议必须有人话理由」的约定");
             }
 
+            BigDecimal itemRemain = BigDecimal.ZERO;
+            BigDecimal itemExpected = BigDecimal.ZERO;
+            BigDecimal maxCost = null;
+            for (int i = 0; i < contexts.size(); i++) {
+                PricingContext c = contexts.get(i);
+                itemRemain = itemRemain.add(c.remainQty() == null ? BigDecimal.ZERO : c.remainQty());
+                BigDecimal expected = PricingPolicy.toCandidate(proposals.get(i).discountRate()).compareTo(rate) == 0
+                        && proposals.get(i).expectedQty() != null
+                        ? proposals.get(i).expectedQty()
+                        : PricingPolicy.estimateExpectedQty(c.remainQty(), rate, c.daysLeft());
+                itemExpected = itemExpected.add(expected);
+                if (c.costPrice() != null && (maxCost == null || c.costPrice().compareTo(maxCost) > 0)) {
+                    maxCost = c.costPrice();
+                }
+            }
+
             StringBuilder fullReason = new StringBuilder(reason);
-            if (clamp.floorHit()) {
+            if (contexts.size() > 1) {
+                fullReason.append("；同单品 ").append(contexts.size()).append(" 个在售批次统一挂这一个价（取各批最深的一档，以批次 ")
+                        .append(batch.getBatchNo()).append(" 为准）");
+            }
+            if (floorHit) {
                 fullReason.append("；已触到店主设定的最低折扣线 ")
                         .append(PricingPolicy.discountLabel(floor))
                         .append("（app.pricing.min-discount-rate），本可以更低到 ")
-                        .append(PricingPolicy.discountLabel(clamp.rawRate()))
+                        .append(PricingPolicy.discountLabel(rawRate))
                         .append("，被底线拦住");
             }
+            // 按最终挂价（已套底线）判断，三种策略同一口径；同单品各批成本不同时按最高的那批算
+            if (maxCost != null && price.compareTo(maxCost) < 0) {
+                fullReason.append("；建议价 ¥").append(PricingPolicy.money(price))
+                        .append(" 已低于批次成本 ¥").append(PricingPolicy.money(maxCost))
+                        .append("，属清仓让利");
+            }
             if (adjustSeq > 1) {
-                fullReason.append("；本批次当天第 ").append(adjustSeq).append(" 次调价（上限 ")
+                fullReason.append("；本单品当天第 ").append(adjustSeq).append(" 次调价（上限 ")
                         .append(maxAdjust).append(" 次）");
             }
             fullReason.append("；临期判定：").append(metrics.reason());
@@ -199,16 +291,18 @@ public class PricingService {
             suggestion.setBizDate(bizDate);
             suggestion.setItemId(item.getId());
             suggestion.setBatchId(batch.getId());
-            suggestion.setDaysLeft(daysLeft);
-            suggestion.setRemainQty(batch.getRemainQty());
+            suggestion.setDaysLeft(context.daysLeft());
+            suggestion.setRemainQty(itemRemain);
             suggestion.setOriginalPrice(original);
             suggestion.setSuggestedPrice(price);
             suggestion.setDiscountRate(rate);
             suggestion.setStrategy(code);
-            suggestion.setExpectedQty(proposal.expectedQty());
+            suggestion.setEffectiveStrategy(effective);
+            effectiveCounts.merge(effective, 1, Integer::sum);
+            suggestion.setExpectedQty(PricingPolicy.round2(itemExpected));
             suggestion.setReason(PricingPolicy.reason(fullReason.toString()));
-            suggestion.setPriceFloorHit(clamp.floorHit());
-            suggestion.setRawDiscountRate(clamp.rawRate());
+            suggestion.setPriceFloorHit(floorHit);
+            suggestion.setRawDiscountRate(rawRate);
             suggestion.setAdjustSeq(adjustSeq);
             suggestion.setFreshness(metrics.freshness());
             suggestion.setEstimatedSellableDays(metrics.estimatedSellableDays());
@@ -216,14 +310,39 @@ public class PricingService {
             suggestion.setCreatedAt(LocalDateTime.now());
             suggestionMapper.insert(suggestion);
             generated++;
+            if (replacing) {
+                replacedFallbacks++;
+            }
         }
         String note = limited.isEmpty() ? null
-                : "有 " + limited.size() + " 个批次因「同一批次每天最多调价 " + maxAdjust + " 次」被拒绝：" + limited.get(0);
+                : "有 " + limited.size() + " 个单品因「同一单品每天最多调价 " + maxAdjust + " 次」被拒绝：" + limited.get(0);
         if (note != null) {
-            log.info("[pricing] bizDate={} strategy={} 被每日调价上限拒绝 {} 个批次", bizDate, code, limited.size());
+            log.info("[pricing] bizDate={} strategy={} 被每日调价上限拒绝 {} 个单品", bizDate, code, limited.size());
         }
-        log.info("[pricing] bizDate={} strategy={} 临期批次 {} 个，新生成建议 {} 条", bizDate, code, batches.size(), generated);
-        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note);
+        log.info("[pricing] bizDate={} strategy={} 在售批次 {} 个、单品 {} 个，新生成建议 {} 条，按原价不打折 {} 个，实际生效策略 {}",
+                bizDate, code, batches.size(), byItem.size(), generated, atOriginalPrice, effectiveCounts);
+        List<String> strategyNotes = new ArrayList<>();
+        int fallback = generated - effectiveCounts.getOrDefault(code, 0);
+        if (fallback > 0) {
+            String breakdown = effectiveCounts.entrySet().stream()
+                    .map(e -> e.getKey() + " " + e.getValue() + " 条")
+                    .collect(java.util.stream.Collectors.joining("、"));
+            strategyNotes.add("请求 " + code + "，其中 " + fallback + " 条实际由其它策略给出（" + breakdown
+                    + "）；原因写在每条建议的理由里，效果看板按实际生效策略统计");
+        }
+        if (replacedFallbacks > 0) {
+            strategyNotes.add("模型产物现已可用，" + replacedFallbacks + " 个早先回退规则版的单品已用模型重新生成（计一次调价）");
+        }
+        if (!keptFallbacks.isEmpty()) {
+            int kept = keptFallbacks.values().stream().mapToInt(Integer::intValue).sum();
+            String why = keptFallbacks.entrySet().stream()
+                    .map(e -> e.getKey() + "（" + e.getValue() + " 个）")
+                    .collect(java.util.stream.Collectors.joining("；"));
+            strategyNotes.add(kept + " 个单品今天早先回退了规则版，本次未重新生成：" + why);
+        }
+        String strategyNote = strategyNotes.isEmpty() ? null : String.join("；", strategyNotes);
+        return new SuggestionGenerateResponse(bizDate, code, generated, limited.size(), note,
+                effectiveCounts, strategyNote);
     }
 
     /** 5. 查询建议：bizDate 不传时自动取库里最新一天；strategy 不传返回全部策略。 */
@@ -246,10 +365,18 @@ public class PricingService {
                 .eq(code != null, PricingSuggestion::getStrategy, code)
                 .orderByAsc(PricingSuggestion::getDaysLeft)
                 .orderByAsc(PricingSuggestion::getId);
-        List<PricingSuggestion> suggestions = suggestionMapper.selectList(wrapper);
-        if (suggestions.isEmpty()) {
+        List<PricingSuggestion> all = suggestionMapper.selectList(wrapper);
+        if (all.isEmpty()) {
             return List.of();
         }
+        // 同一单品同一策略当天被重新生成过（MODEL 回退后用模型重做）：只展示最新的一条，旧的留在库里备查
+        Map<String, Long> newestId = new HashMap<>();
+        for (PricingSuggestion s : all) {
+            newestId.merge(s.getItemId() + "|" + s.getStrategy(), s.getId(), Math::max);
+        }
+        List<PricingSuggestion> suggestions = all.stream()
+                .filter(s -> s.getId().equals(newestId.get(s.getItemId() + "|" + s.getStrategy())))
+                .toList();
 
         List<Long> itemIds = suggestions.stream().map(PricingSuggestion::getItemId).distinct().toList();
         List<Long> batchIds = suggestions.stream().map(PricingSuggestion::getBatchId).distinct().toList();
@@ -271,7 +398,8 @@ public class PricingService {
                     s.getExpectedQty(), s.getReason(), decision != null,
                     decision == null ? null : decision.getFinalPrice(),
                     s.getPriceFloorHit(), s.getRawDiscountRate(), s.getAdjustSeq(),
-                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty()));
+                    s.getFreshness(), s.getEstimatedSellableDays(), s.getExpectedScrapQty(),
+                    s.getEffectiveStrategy() == null ? s.getStrategy() : s.getEffectiveStrategy()));
         }
         return views;
     }
@@ -288,6 +416,15 @@ public class PricingService {
         if (suggestion == null) {
             throw BusinessException.notFound("定价建议不存在：suggestionId=" + request.getSuggestionId());
         }
+        // 回退规则版的 MODEL 建议在模型可用后会被重新生成；旧页面上对旧建议的决策会被列表隐藏、却仍被推送取用
+        Long newer = suggestionMapper.selectCount(Wrappers.<PricingSuggestion>lambdaQuery()
+                .eq(PricingSuggestion::getBizDate, suggestion.getBizDate())
+                .eq(PricingSuggestion::getStrategy, suggestion.getStrategy())
+                .eq(PricingSuggestion::getItemId, suggestion.getItemId())
+                .gt(PricingSuggestion::getId, suggestion.getId()));
+        if (newer != null && newer > 0) {
+            throw BusinessException.conflict("该建议已被重新生成（模型产物可用后替换了回退规则版的建议），请刷新页面后对最新建议决策");
+        }
         BigDecimal suggestedPrice = PricingPolicy.round2(suggestion.getSuggestedPrice());
         BigDecimal finalPrice = request.getFinalPrice() == null
                 ? suggestedPrice
@@ -303,10 +440,10 @@ public class PricingService {
         if (changed) {
             // 约束 1：手工改价也不得低于最低折扣线（边界闭区间：恰好等于底线可通过）。
             assertPriceAtOrAboveFloor(suggestion, finalPrice);
-            // 约束 2：手工改价同样计入"每天最多调价 N 次"。
-            FruitBatch batch = suggestion.getBatchId() == null ? null : batchMapper.selectById(suggestion.getBatchId());
-            String batchLabel = batch == null ? ("#" + suggestion.getBatchId()) : batch.getBatchNo();
-            adjustGuard.assertCanAdjust(batchLabel, suggestion.getBizDate(), suggestion.getBatchId());
+            // 约束 2：手工改价同样计入"每个单品每天最多调价 N 次"（一个单品一个价签）。
+            FruitItem item = suggestion.getItemId() == null ? null : itemMapper.selectById(suggestion.getItemId());
+            String itemLabel = item == null ? ("#" + suggestion.getItemId()) : item.getItemName();
+            adjustGuard.assertCanAdjust(itemLabel, suggestion.getBizDate(), suggestion.getItemId());
         }
 
         String operator = request.getOperator() == null || request.getOperator().isBlank()
@@ -376,11 +513,17 @@ public class PricingService {
         return map;
     }
 
-    private PricingSuggestion existingSuggestion(LocalDate bizDate, String strategy, Long batchId) {
+    private PricingSuggestion existingSuggestion(LocalDate bizDate, String strategy, Long itemId) {
         return suggestionMapper.selectOne(Wrappers.<PricingSuggestion>lambdaQuery()
                 .eq(PricingSuggestion::getBizDate, bizDate)
                 .eq(PricingSuggestion::getStrategy, strategy)
-                .eq(PricingSuggestion::getBatchId, batchId)
+                .eq(PricingSuggestion::getItemId, itemId)
+                .orderByDesc(PricingSuggestion::getId)
                 .last("LIMIT 1"));
+    }
+
+    private boolean hasDecision(Long suggestionId) {
+        return decisionMapper.selectCount(Wrappers.<PricingDecision>lambdaQuery()
+                .eq(PricingDecision::getSuggestionId, suggestionId)) > 0;
     }
 }

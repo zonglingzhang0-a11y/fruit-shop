@@ -23,7 +23,8 @@ const BASE = process.env.WEB_BASE || 'http://localhost:5174'
 // 定价建议页默认没有数据（建议由后端"生成"，这正是要演示的链路），
 // 所以先点「生成建议」，等表格出现再截图；点不了就如实记为问题。
 const PAGES = [
-  { hash: '#/', name: '01-dashboard', title: '效果看板', waitFor: '.el-card' },
+  // 看板：等图表画出来（数据来自 /api/sales/effect；种子数据带三策略日统计）
+  { hash: '#/', name: '01-dashboard', title: '效果看板', waitFor: '.line-chart svg' },
   { hash: '#/near-expiry', name: '02-near-expiry', title: '临期清单', waitFor: '.el-table' },
   {
     hash: '#/pricing',
@@ -43,7 +44,20 @@ const PAGES = [
     }
   },
   { hash: '#/traffic', name: '04-traffic', title: '客流时段', waitFor: '.bars' },
-  { hash: '#/push', name: '05-push', title: '推送消息', waitFor: '.el-card' },
+  // 推送页：等"推送计划与效果"的统计卡片出来（数据来自 /api/push/stats）
+  { hash: '#/push', name: '05-push', title: '推送消息', waitFor: '.effect-card .kpi-value' },
+  // 销售回流（Issue #4）：选一个单品，等批次下拉加载出 FIFO 默认批次再截图（只读到这一步，不提交，避免改动演示数据）
+  {
+    hash: '#/sales',
+    name: '07-sales-feedback',
+    title: '销售回流',
+    waitFor: '.form',
+    action: async (p) => {
+      await p.locator('.form .el-select').first().click({ timeout: 10000 })
+      await p.locator('.el-select-dropdown__item').first().click({ timeout: 10000 })
+      await p.waitForTimeout(1500)
+    }
+  },
   // 顾客端 H5：切手机视口（375×812，iPhone X 尺寸）截图
   {
     hash: '#/h5',
@@ -62,7 +76,10 @@ const PAGES = [
 
 const problems = []
 
-const browser = await chromium.launch()
+// 可选：PLAYWRIGHT_CHROMIUM_PATH 指向已装好的 Chromium（例如云端/CI 预装的浏览器），不设就用 Playwright 自己下载的
+const browser = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}
+)
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
 const page = await context.newPage()
 
@@ -159,4 +176,4 @@ if (problems.length) {
   problems.forEach((p) => console.log('  - ' + p))
   process.exit(1)
 }
-console.log('截图完成：5 个页面全部渲染成功，无控制台报错、无失败请求')
+console.log(`截图完成：${PAGES.length} 个页面全部渲染成功，无控制台报错、无失败请求`)

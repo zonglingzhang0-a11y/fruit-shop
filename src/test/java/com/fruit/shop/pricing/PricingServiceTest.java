@@ -1,7 +1,9 @@
 package com.fruit.shop.pricing;
 
+import com.fruit.shop.batch.OnSaleService;
+import com.fruit.shop.batch.domain.FruitBatch;
+import com.fruit.shop.batch.dto.OnSaleRow;
 import com.fruit.shop.batch.mapper.FruitBatchMapper;
-import com.fruit.shop.config.AppProperties;
 import com.fruit.shop.item.domain.FruitItem;
 import com.fruit.shop.item.mapper.FruitItemMapper;
 import com.fruit.shop.pricing.domain.PricingDecision;
@@ -20,9 +22,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -42,7 +43,7 @@ class PricingServiceTest {
     private PricingService pricingService;
 
     @Autowired
-    private AppProperties props;
+    private OnSaleService onSaleService;
 
     @Autowired
     private FruitItemMapper itemMapper;
@@ -57,10 +58,13 @@ class PricingServiceTest {
     @DisplayName("RULE：剩余天数越少折扣越深，且只取候选档、绝不高于原价，reason 必须是人话")
     void ruleSuggestionsFollowDaysLeftAndStayInCandidateSet() {
         LocalDate bizDate = LocalDate.of(2035, 2, 10);
-        FruitItem item = ShopFixtures.item(itemMapper, "规则测试柑橘", "测试规则类", "4.00", "10.00", 8);
-        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(8), 8, "5", "4.00"); // days_left = 0
-        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(7), 8, "5", "4.00"); // days_left = 1
-        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "5", "4.00"); // days_left = 2
+        // 三个单品各一批（一个单品一天只挂一个价，所以分开放）；都一份没卖（库存压力 3 分），保质期 8 天
+        Map<Integer, FruitItem> itemByDays = new HashMap<>();
+        for (int daysLeft = 0; daysLeft <= 2; daysLeft++) {
+            FruitItem item = ShopFixtures.item(itemMapper, "规则测试柑橘" + daysLeft, "测试规则类", "4.00", "10.00", 8);
+            ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(8 - daysLeft), 8, "5", "4.00");
+            itemByDays.put(daysLeft, item);
+        }
 
         SuggestionGenerateRequest request = new SuggestionGenerateRequest();
         request.setBizDate(bizDate);
@@ -71,20 +75,26 @@ class PricingServiceTest {
         assertThat(response.strategy()).isEqualTo("RULE");
         assertThat(response.generated()).isGreaterThanOrEqualTo(3);
 
-        List<SuggestionView> mine = mine(bizDate, "RULE", item.getId());
-        assertThat(mine).hasSize(3);
-        Map<Integer, SuggestionView> byDaysLeft = mine.stream()
-                .collect(Collectors.toMap(SuggestionView::daysLeft, Function.identity()));
-        // days_left=0 的规则档是 5 折，但被最低折扣线 0.60 拦住（docs/07 第 1 节 B）→ 挂 6 折并留痕
+        Map<Integer, SuggestionView> byDaysLeft = new HashMap<>();
+        itemByDays.forEach((daysLeft, item) -> {
+            List<SuggestionView> rows = mine(bizDate, "RULE", item.getId());
+            assertThat(rows).hasSize(1);
+            byDaysLeft.put(daysLeft, rows.get(0));
+        });
+        // days_left=0：紧迫度 4 + 压力 3 + 剩余寿命 0% 加 1 = 8 分 → 5 折，被最低折扣线 0.60 拦住（docs/07 第 1 节 B）→ 挂 6 折并留痕
         assertThat(byDaysLeft.get(0).discountRate()).isEqualByComparingTo("0.60");
         assertThat(byDaysLeft.get(0).priceFloorHit()).isTrue();
         assertThat(byDaysLeft.get(0).rawDiscountRate()).isEqualByComparingTo("0.50");
         assertThat(byDaysLeft.get(0).reason()).contains("最低折扣线");
+        // days_left=1：3 + 3 + 剩余寿命 1/8 ≤ 20% 加 1 = 7 分 → 5 折，同样被底线抬到 6 折
         assertThat(byDaysLeft.get(1).discountRate()).isEqualByComparingTo("0.60");
-        assertThat(byDaysLeft.get(1).priceFloorHit()).isFalse();
+        assertThat(byDaysLeft.get(1).priceFloorHit()).isTrue();
+        assertThat(byDaysLeft.get(1).rawDiscountRate()).isEqualByComparingTo("0.50");
+        // days_left=2：2 + 3 = 5 分（剩余寿命 25% 不加分）→ 7 折
         assertThat(byDaysLeft.get(2).discountRate()).isEqualByComparingTo("0.70");
+        assertThat(byDaysLeft.get(2).priceFloorHit()).isFalse();
 
-        for (SuggestionView view : mine) {
+        for (SuggestionView view : byDaysLeft.values()) {
             assertThat(PricingPolicy.isCandidate(view.discountRate()))
                     .as("折扣必须是候选档之一，实际 %s", view.discountRate()).isTrue();
             assertThat(view.discountRate()).isLessThanOrEqualTo(BigDecimal.ONE);
@@ -93,7 +103,7 @@ class PricingServiceTest {
                     .multiply(view.discountRate()).setScale(2, RoundingMode.HALF_UP));
             assertThat(view.reason()).isNotBlank();
             assertThat(view.expectedQty()).isNotNull();
-            assertThat(view.itemName()).isEqualTo(item.getItemName());
+            assertThat(view.itemName()).startsWith("规则测试柑橘");
             assertThat(view.batchNo()).isNotBlank();
             assertThat(view.strategy()).isEqualTo("RULE");
             assertThat(view.decided()).isFalse();
@@ -103,37 +113,102 @@ class PricingServiceTest {
     }
 
     @Test
-    @DisplayName("RULE 存量压力：现存超过阈值时再降一档")
-    void stockPressureLowersOneStep() {
-        LocalDate bizDate = LocalDate.of(2035, 2, 11);
-        FruitItem item = ShopFixtures.item(itemMapper, "压力测试果", "测试压力类", "3.00", "10.00", 8);
-        ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "30", "3.00"); // days_left=2，现存 30 > 阈值 20
+    @DisplayName("一个单品一天一个价（与评测同口径）：多批次取最深的一档，只出一条建议；店主确认后 H5 也只有一行、余量是合计")
+    void oneItemOnePriceAcrossBatches() {
+        LocalDate bizDate = LocalDate.of(2035, 2, 16);
+        FruitItem item = ShopFixtures.item(itemMapper, "多批次测试梨", "测试单品价类", "4.00", "10.00", 8);
+        // 刚到 4 天的新货（规则给原价）+ 明天到期、一份没卖的旧货（规则 5 折、被底线抬到 6 折）
+        FruitBatch fresh = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(4), 8, "10", "4.00");
+        FruitBatch urgent = ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(7), 8, "5", "4.00");
 
         SuggestionGenerateRequest request = new SuggestionGenerateRequest();
         request.setBizDate(bizDate);
         request.setStrategy("RULE");
         pricingService.generate(request);
 
-        List<SuggestionView> mine = mine(bizDate, "RULE", item.getId());
-        assertThat(mine).hasSize(1);
-        assertThat(mine.get(0).daysLeft()).isEqualTo(2);
-        assertThat(mine.get(0).discountRate()).isEqualByComparingTo("0.60");
-        assertThat(mine.get(0).reason()).contains("存量偏大");
+        List<SuggestionView> rows = mine(bizDate, "RULE", item.getId());
+        assertThat(rows).hasSize(1);
+        SuggestionView view = rows.get(0);
+        assertThat(view.batchId()).as("价格以折扣最深的那批为准").isEqualTo(urgent.getId());
+        assertThat(view.daysLeft()).isEqualTo(1);
+        assertThat(view.discountRate()).isEqualByComparingTo("0.60");
+        assertThat(view.remainQty()).as("现存是该单品所有在售批次的合计").isEqualByComparingTo("15");
+        assertThat(view.reason()).contains("同单品 2 个在售批次统一挂这一个价").contains(urgent.getBatchNo());
 
-        // 低于阈值时回到 7 折（同一策略、同一天，换一个商品对照）
-        FruitItem small = ShopFixtures.item(itemMapper, "小量测试果", "测试压力类", "3.00", "10.00", 8);
-        ShopFixtures.batch(batchMapper, small.getId(), bizDate.minusDays(6), 8, "5", "3.00");
-        pricingService.generate(request);
-        List<SuggestionView> smallRows = mine(bizDate, "RULE", small.getId());
-        assertThat(smallRows).hasSize(1);
-        assertThat(smallRows.get(0).discountRate()).isEqualByComparingTo("0.70");
+        DecisionRequest accept = new DecisionRequest();
+        accept.setSuggestionId(view.id());
+        pricingService.decide(accept);
+        List<OnSaleRow> specials = onSaleService.onSale(bizDate).stream()
+                .filter(r -> item.getId().equals(r.itemId())).toList();
+        assertThat(specials).hasSize(1);
+        assertThat(specials.get(0).finalPrice()).isEqualByComparingTo("6.00");
+        assertThat(specials.get(0).remainQty()).isEqualByComparingTo("15");
+        assertThat(specials.get(0).batchId()).as("到期日按最急的那批展示").isEqualTo(urgent.getId());
+        assertThat(fresh.getId()).isNotNull();
     }
 
     @Test
-    @DisplayName("FIXED：不看剩余天数，统一使用配置的固定折扣档（仍然不涨价）")
-    void fixedStrategyUsesConfiguredDiscount() {
+    @DisplayName("定价范围与评测一致：剩 3 天但一份没卖的批次也会打折；只有新货的单品按原价、不出 RULE 建议")
+    void rulePricesEveryInStockBatch() {
+        LocalDate bizDate = LocalDate.of(2035, 2, 17);
+        FruitItem pressured = ShopFixtures.item(itemMapper, "剩三天压货果", "测试范围类", "4.00", "10.00", 8);
+        ShopFixtures.batch(batchMapper, pressured.getId(), bizDate.minusDays(5), 8, "20", "4.00"); // days_left=3
+        FruitItem freshOnly = ShopFixtures.item(itemMapper, "全是新货果", "测试范围类", "4.00", "10.00", 8);
+        ShopFixtures.batch(batchMapper, freshOnly.getId(), bizDate.minusDays(2), 8, "20", "4.00"); // days_left=6
+
+        SuggestionGenerateRequest request = new SuggestionGenerateRequest();
+        request.setBizDate(bizDate);
+        request.setStrategy("RULE");
+        pricingService.generate(request);
+
+        // 紧迫度 1 + 库存压力 3 = 4 分 → 7 折（原来只看临期清单 ≤ 2 天时，这批不会被定价）
+        List<SuggestionView> rows = mine(bizDate, "RULE", pressured.getId());
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).daysLeft()).isEqualTo(3);
+        assertThat(rows.get(0).discountRate()).isEqualByComparingTo("0.70");
+        assertThat(mine(bizDate, "RULE", freshOnly.getId())).as("规则算下来是原价：不打扰店主").isEmpty();
+
+        // FIXED 是"不降价"的对照组：每个在售单品都留一条"维持原价"
+        request.setStrategy("FIXED");
+        pricingService.generate(request);
+        assertThat(mine(bizDate, "FIXED", freshOnly.getId())).singleElement()
+                .satisfies(v -> assertThat(v.discountRate()).isEqualByComparingTo("1.00"));
+    }
+
+    @Test
+    @DisplayName("RULE 库存压力看还剩几成：同样剩 25 份，一份没卖的 7 折，已卖掉七成五的 9 折")
+    void stockPressureFollowsRemainingShare() {
+        LocalDate bizDate = LocalDate.of(2035, 2, 11);
+        FruitItem untouched = ShopFixtures.item(itemMapper, "压力测试果", "测试压力类", "3.00", "10.00", 8);
+        ShopFixtures.batch(batchMapper, untouched.getId(), bizDate.minusDays(6), 8, "25", "3.00"); // days_left=2，25/25
+        FruitItem selling = ShopFixtures.item(itemMapper, "卖动测试果", "测试压力类", "3.00", "10.00", 8);
+        FruitBatch sold = ShopFixtures.batch(batchMapper, selling.getId(), bizDate.minusDays(6), 8, "100", "3.00");
+        sold.setRemainQty(new BigDecimal("25")); // 到货 100、已卖 75
+        batchMapper.updateById(sold);
+
+        SuggestionGenerateRequest request = new SuggestionGenerateRequest();
+        request.setBizDate(bizDate);
+        request.setStrategy("RULE");
+        pricingService.generate(request);
+
+        // 紧迫度 2 + 压力 3（还剩 100%）= 5 分 → 7 折
+        List<SuggestionView> full = mine(bizDate, "RULE", untouched.getId());
+        assertThat(full).hasSize(1);
+        assertThat(full.get(0).daysLeft()).isEqualTo(2);
+        assertThat(full.get(0).discountRate()).isEqualByComparingTo("0.70");
+        assertThat(full.get(0).reason()).contains("库存压力 3 分");
+        // 紧迫度 2 + 压力 0（还剩 25%）= 2 分 → 9 折
+        List<SuggestionView> rest = mine(bizDate, "RULE", selling.getId());
+        assertThat(rest).hasSize(1);
+        assertThat(rest.get(0).discountRate()).isEqualByComparingTo("0.90");
+        assertThat(rest.get(0).reason()).contains("还剩 25%").contains("库存压力 0 分");
+    }
+
+    @Test
+    @DisplayName("FIXED：一律原价、不打折（与评测里的固定价基线同口径）")
+    void fixedStrategyKeepsOriginalPrice() {
         LocalDate bizDate = LocalDate.of(2035, 2, 12);
-        FruitItem item = ShopFixtures.item(itemMapper, "固定折扣果", "测试固定类", "3.00", "10.00", 8);
+        FruitItem item = ShopFixtures.item(itemMapper, "固定价测试果", "测试固定类", "3.00", "10.00", 8);
         ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(8), 8, "5", "3.00"); // days_left = 0
         ShopFixtures.batch(batchMapper, item.getId(), bizDate.minusDays(6), 8, "5", "3.00"); // days_left = 2
 
@@ -142,13 +217,14 @@ class PricingServiceTest {
         request.setStrategy("FIXED");
         pricingService.generate(request);
 
-        BigDecimal expected = PricingPolicy.toCandidate(props.getPricing().getFixedDiscount());
         List<SuggestionView> mine = mine(bizDate, "FIXED", item.getId());
-        assertThat(mine).hasSize(2);
+        assertThat(mine).as("一个单品一天一个价：两批只出一条").hasSize(1);
+        assertThat(mine.get(0).remainQty()).isEqualByComparingTo("10");
         assertThat(mine).allSatisfy(view -> {
-            assertThat(view.discountRate()).isEqualByComparingTo(expected);
-            assertThat(view.suggestedPrice()).isLessThanOrEqualTo(view.originalPrice());
-            assertThat(view.reason()).contains("基线");
+            assertThat(view.discountRate()).isEqualByComparingTo("1.00");
+            assertThat(view.suggestedPrice()).isEqualByComparingTo(view.originalPrice());
+            assertThat(view.priceFloorHit()).isFalse();
+            assertThat(view.reason()).contains("基线").contains("原价");
         });
     }
 
@@ -171,17 +247,15 @@ class PricingServiceTest {
         assertThat(PricingPolicy.isCandidate(view.discountRate())).isTrue();
         assertThat(view.suggestedPrice()).isLessThanOrEqualTo(view.originalPrice());
         assertThat(view.reason()).isNotBlank();
-
-        boolean artifactExists = Files.isRegularFile(Paths.get(props.getPricing().getModelFile()));
-        if (artifactExists) {
-            assertThat(view.reason()).contains("模型");
-        } else {
-            assertThat(view.reason()).contains("回退规则版");
-        }
+        // 仓库里的产物是 2026-06-29 的（或者没有产物）：对 2035 年的业务日一定不可用 → 如实回退并记为 RULE
+        assertThat(view.reason()).contains("回退规则版");
+        assertThat(view.effectiveStrategy()).isEqualTo("RULE");
+        assertThat(response.effectiveStrategies()).containsEntry("RULE", response.generated());
+        assertThat(response.strategyNote()).contains("实际由其它策略给出");
     }
 
     @Test
-    @DisplayName("生成是幂等的：同一天同一策略同一批次不会重复插入")
+    @DisplayName("生成是幂等的：同一天同一策略同一单品不会重复插入")
     void generateIsIdempotent() {
         LocalDate bizDate = LocalDate.of(2035, 2, 14);
         FruitItem item = ShopFixtures.item(itemMapper, "幂等测试果", "测试幂等类", "4.00", "10.00", 8);

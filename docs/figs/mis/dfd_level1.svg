@@ -1,0 +1,354 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','WenQuanYi Zen Hei',sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker><marker id="arrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#606266"/></marker></defs><rect width="1600" height="900" fill="#fff"/><text x="32.0" y="42.0" font-size="24" fill="#303133" text-anchor="start" font-weight="600">数据流程图（一层图）</text>
+<text x="32.0" y="70.0" font-size="14" fill="#606266" text-anchor="start" font-weight="400">把顶层图的 P0 分解为 8 个处理、10 个数据存储；系统只给建议，改价和推送都由店主确认</text>
+<text x="1568.0" y="70.0" font-size="13" fill="#909399" text-anchor="end" font-weight="400">依据：代码（Controller / Service / schema-h2.sql）与 docs/01、03、04</text>
+<rect x="20.0" y="291.0" width="130.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="291.0" x2="150.0" y2="291.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="325.0" x2="150.0" y2="325.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="291.0" x2="20.0" y2="325.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="60.0" y1="291.0" x2="60.0" y2="325.0" stroke="#303133" stroke-width="1.2"/>
+<text x="40.0" y="313.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D1</text>
+<text x="105.0" y="312.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">单品档案</text>
+<rect x="20.0" y="335.0" width="130.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="335.0" x2="150.0" y2="335.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="369.0" x2="150.0" y2="369.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="335.0" x2="20.0" y2="369.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="60.0" y1="335.0" x2="60.0" y2="369.0" stroke="#303133" stroke-width="1.2"/>
+<text x="40.0" y="357.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D9</text>
+<text x="105.0" y="356.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">策略效果统计</text>
+<line x1="27.0" y1="335.0" x2="27.0" y2="369.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="210.0" y="286.0" width="160.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="210.0" y1="310.0" x2="370.0" y2="310.0" stroke="#303133" stroke-width="1.2"/>
+<text x="290.0" y="303.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P1</text>
+<text x="290.0" y="331.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">到货与报废登记</text>
+<text x="290.0" y="348.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">batch · POST /batches</text>
+<text x="290.0" y="361.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">与 /batches/{id}/scrap</text>
+<rect x="400.0" y="309.0" width="120.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="400.0" y1="309.0" x2="520.0" y2="309.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="400.0" y1="343.0" x2="520.0" y2="343.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="400.0" y1="309.0" x2="400.0" y2="343.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="440.0" y1="309.0" x2="440.0" y2="343.0" stroke="#303133" stroke-width="1.2"/>
+<text x="420.0" y="331.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D6</text>
+<text x="480.0" y="330.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">客流统计</text>
+<rect x="580.0" y="286.0" width="140.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="580.0" y1="310.0" x2="720.0" y2="310.0" stroke="#303133" stroke-width="1.2"/>
+<text x="650.0" y="303.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P2</text>
+<text x="650.0" y="337.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">临期识别</text>
+<text x="650.0" y="355.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">batch · 含每小时扫描</text>
+<rect x="870.0" y="286.0" width="140.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="870.0" y1="310.0" x2="1010.0" y2="310.0" stroke="#303133" stroke-width="1.2"/>
+<text x="940.0" y="303.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P3</text>
+<text x="940.0" y="331.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">定价建议生成</text>
+<text x="940.0" y="348.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">pricing · generate</text>
+<text x="940.0" y="361.0" font-size="11" fill="#909399" text-anchor="middle" font-weight="400">每单品一条建议</text>
+<rect x="1080.0" y="290.0" width="120.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1080.0" y1="290.0" x2="1200.0" y2="290.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1080.0" y1="324.0" x2="1200.0" y2="324.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1080.0" y1="290.0" x2="1080.0" y2="324.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1120.0" y1="290.0" x2="1120.0" y2="324.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1100.0" y="312.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D4</text>
+<text x="1160.0" y="311.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">定价决策</text>
+<rect x="1080.0" y="332.0" width="120.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1080.0" y1="332.0" x2="1200.0" y2="332.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1080.0" y1="366.0" x2="1200.0" y2="366.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1080.0" y1="332.0" x2="1080.0" y2="366.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1120.0" y1="332.0" x2="1120.0" y2="366.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1100.0" y="354.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D3</text>
+<text x="1160.0" y="353.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">定价建议</text>
+<rect x="1270.0" y="286.0" width="140.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="1270.0" y1="310.0" x2="1410.0" y2="310.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1340.0" y="303.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P5</text>
+<text x="1340.0" y="337.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">定价确认与特价公示</text>
+<text x="1340.0" y="355.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">pricing · batch/on-sale</text>
+<rect x="1485.0" y="310.0" width="100.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="1480.0" y="305.0" width="100.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="1530.0" y="331.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">顾客/会员</text>
+<rect x="520.0" y="96.0" width="240.0" height="64.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="520.0" y1="120.0" x2="760.0" y2="120.0" stroke="#303133" stroke-width="1.2"/>
+<text x="640.0" y="113.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P4</text>
+<text x="640.0" y="139.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">模型定价计算</text>
+<text x="640.0" y="157.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">Python 离线脚本 · 人工运行</text>
+<rect x="840.0" y="111.0" width="180.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="840.0" y1="111.0" x2="1020.0" y2="111.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="840.0" y1="145.0" x2="1020.0" y2="145.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="840.0" y1="111.0" x2="840.0" y2="145.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="880.0" y1="111.0" x2="880.0" y2="145.0" stroke="#303133" stroke-width="1.2"/>
+<text x="860.0" y="133.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D10</text>
+<text x="950.0" y="132.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">模型定价产物（文件）</text>
+<rect x="88.0" y="196.0" width="147.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="88.0" y1="196.0" x2="235.0" y2="196.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="88.0" y1="230.0" x2="235.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="88.0" y1="196.0" x2="88.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="128.0" y1="196.0" x2="128.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<text x="108.0" y="218.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D3</text>
+<text x="181.5" y="217.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">定价建议</text>
+<line x1="95.0" y1="196.0" x2="95.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="250.0" y="196.0" width="430.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="250.0" y1="196.0" x2="680.0" y2="196.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="250.0" y1="230.0" x2="680.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="250.0" y1="196.0" x2="250.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="290.0" y1="196.0" x2="290.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<text x="270.0" y="218.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D2</text>
+<text x="485.0" y="217.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">批次台账（含临期判定指标）</text>
+<rect x="700.0" y="196.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="700.0" y1="196.0" x2="840.0" y2="196.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="700.0" y1="230.0" x2="840.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="700.0" y1="196.0" x2="700.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="740.0" y1="196.0" x2="740.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<text x="720.0" y="218.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D8</text>
+<text x="790.0" y="217.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">销售流水</text>
+<rect x="930.0" y="196.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="930.0" y1="196.0" x2="1070.0" y2="196.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="930.0" y1="230.0" x2="1070.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="930.0" y1="196.0" x2="930.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="970.0" y1="196.0" x2="970.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<text x="950.0" y="218.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D1</text>
+<text x="1020.0" y="217.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">单品档案</text>
+<line x1="937.0" y1="196.0" x2="937.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="1270.0" y="196.0" width="150.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1270.0" y1="196.0" x2="1420.0" y2="196.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1270.0" y1="230.0" x2="1420.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1270.0" y1="196.0" x2="1270.0" y2="230.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1310.0" y1="196.0" x2="1310.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1290.0" y="218.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D2</text>
+<text x="1365.0" y="217.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">批次台账</text>
+<line x1="1277.0" y1="196.0" x2="1277.0" y2="230.0" stroke="#303133" stroke-width="1.2"/>
+<polyline points="150.0,308.0 210.0,308.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="180.0" y="302.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">单品档案</text>
+<polyline points="210.0,352.0 150.0,352.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="180.0" y="367.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">报废量</text>
+<polyline points="225.0,230.0 225.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="219.0" y="262.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">生效策略</text>
+<polyline points="330.0,286.0 330.0,230.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="336.0" y="262.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">新批次 / 报废记录</text>
+<polyline points="520.0,326.0 580.0,326.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="550.0" y="320.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">营业天数</text>
+<polyline points="600.0,230.0 600.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="594.0" y="262.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">在售批次</text>
+<polyline points="625.0,286.0 625.0,230.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="631.0" y="255.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期</text>
+<text x="631.0" y="269.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">判定指标</text>
+<polyline points="710.0,230.0 710.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="716.0" y="262.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">近7天销量</text>
+<polyline points="720.0,340.0 870.0,340.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="795.0" y="334.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">在售批次及临期指标</text>
+<polyline points="60.0,291.0 60.0,128.0 520.0,128.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="290.0" y="122.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">单品档案</text>
+<polyline points="560.0,196.0 560.0,160.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="554.0" y="182.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">批次数据</text>
+<polyline points="740.0,196.0 740.0,160.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="746.0" y="182.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">历史销量</text>
+<polyline points="760.0,128.0 840.0,128.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="800.0" y="122.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">模型定价产物</text>
+<polyline points="900.0,145.0 900.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="906.0" y="272.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">模型建议</text>
+<polyline points="990.0,230.0 990.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="996.0" y="262.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">原价</text>
+<polyline points="1080.0,306.0 1010.0,306.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1045.0" y="300.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">改价次数</text>
+<polyline points="1010.0,349.0 1080.0,349.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1045.0" y="365.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价建议</text>
+<polyline points="1340.0,230.0 1340.0,286.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1334.0" y="262.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">在售批次</text>
+<polyline points="1200.0,298.0 1270.0,298.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1235.0" y="292.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">改价次数</text>
+<polyline points="1270.0,314.0 1200.0,314.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1235.0" y="328.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">决策记录</text>
+<polyline points="1200.0,352.0 1270.0,352.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1235.0" y="368.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">待确认建议</text>
+<polyline points="1410.0,326.0 1480.0,326.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1445.0" y="320.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">当日特价</text>
+<rect x="235.0" y="429.0" width="100.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="230.0" y="424.0" width="100.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="280.0" y="450.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店员</text>
+<rect x="605.0" y="429.0" width="90.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="600.0" y="424.0" width="90.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="645.0" y="450.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店主</text>
+<rect x="715.0" y="428.0" width="145.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="715.0" y1="428.0" x2="860.0" y2="428.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="715.0" y1="462.0" x2="860.0" y2="462.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="715.0" y1="428.0" x2="715.0" y2="462.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="755.0" y1="428.0" x2="755.0" y2="462.0" stroke="#303133" stroke-width="1.2"/>
+<text x="735.0" y="450.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D4</text>
+<text x="807.5" y="449.6" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">定价决策</text>
+<line x1="722.0" y1="428.0" x2="722.0" y2="462.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="895.0" y="429.0" width="100.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="890.0" y="424.0" width="100.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="940.0" y="450.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店主</text>
+<line x1="897.0" y1="424.0" x2="897.0" y2="466.0" stroke="#303133" stroke-width="1.3"/>
+<rect x="1295.0" y="429.0" width="100.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="1290.0" y="424.0" width="100.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="1340.0" y="450.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">店主</text>
+<line x1="1297.0" y1="424.0" x2="1297.0" y2="466.0" stroke="#303133" stroke-width="1.3"/>
+<polyline points="265.0,424.0 265.0,366.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="259.0" y="392.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">到货信息</text>
+<text x="259.0" y="406.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">报废登记（批次·数量·原因）</text>
+<polyline points="295.0,366.0 295.0,424.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="301.0" y="392.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">批次登记回执</text>
+<text x="301.0" y="406.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">报废回执</text>
+<polyline points="595.0,366.0 595.0,435.0 330.0,435.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="462.0" y="429.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期批次清单</text>
+<polyline points="670.0,366.0 670.0,424.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="676.0" y="399.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">临期批次清单</text>
+<polyline points="925.0,424.0 925.0,366.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="919.0" y="399.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价生成请求</text>
+<polyline points="955.0,366.0 955.0,424.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="961.0" y="399.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价建议</text>
+<polyline points="1325.0,424.0 1325.0,366.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1319.0" y="399.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价决策</text>
+<polyline points="1355.0,366.0 1355.0,424.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1361.0" y="399.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">决策回执</text>
+<rect x="20.0" y="543.0" width="130.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="20.0" y1="543.0" x2="150.0" y2="543.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="577.0" x2="150.0" y2="577.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="20.0" y1="543.0" x2="20.0" y2="577.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="60.0" y1="543.0" x2="60.0" y2="577.0" stroke="#303133" stroke-width="1.2"/>
+<text x="40.0" y="565.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D9</text>
+<text x="105.0" y="564.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">策略效果统计</text>
+<rect x="230.0" y="524.0" width="160.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="230.0" y1="548.0" x2="390.0" y2="548.0" stroke="#303133" stroke-width="1.2"/>
+<text x="310.0" y="541.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P8</text>
+<text x="310.0" y="575.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">销售回流与效果统计</text>
+<text x="310.0" y="593.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">sales · feedback / effect</text>
+<rect x="540.0" y="547.0" width="160.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="540.0" y1="547.0" x2="700.0" y2="547.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="540.0" y1="581.0" x2="700.0" y2="581.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="540.0" y1="547.0" x2="540.0" y2="581.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="580.0" y1="547.0" x2="580.0" y2="581.0" stroke="#303133" stroke-width="1.2"/>
+<text x="560.0" y="569.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D7</text>
+<text x="640.0" y="568.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">推送计划与日志</text>
+<rect x="840.0" y="524.0" width="260.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="840.0" y1="548.0" x2="1100.0" y2="548.0" stroke="#303133" stroke-width="1.2"/>
+<text x="970.0" y="541.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P7</text>
+<text x="970.0" y="575.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">推送计划与发送</text>
+<text x="970.0" y="593.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">push · preview / send / open / stats</text>
+<rect x="1195.0" y="550.0" width="88.0" height="42.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="1190.0" y="545.0" width="88.0" height="42.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.6"/>
+<text x="1234.0" y="571.2" font-size="15" fill="#303133" text-anchor="middle" font-weight="600">顾客/会员</text>
+<line x1="1197.0" y1="545.0" x2="1197.0" y2="587.0" stroke="#303133" stroke-width="1.3"/>
+<rect x="1310.0" y="524.0" width="140.0" height="80.0" rx="12" fill="#eefaf4" stroke="#303133" stroke-width="1.6"/>
+<line x1="1310.0" y1="548.0" x2="1450.0" y2="548.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1380.0" y="541.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">P6</text>
+<text x="1380.0" y="575.0" font-size="14" fill="#303133" text-anchor="middle" font-weight="600">客流时段分析</text>
+<text x="1380.0" y="593.0" font-size="11.5" fill="#909399" text-anchor="middle" font-weight="400">traffic · hourly / peaks</text>
+<polyline points="265.0,466.0 265.0,524.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="259.0" y="499.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">销售流水</text>
+<polyline points="295.0,524.0 295.0,466.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="301.0" y="499.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">回流回执</text>
+<polyline points="370.0,524.0 370.0,455.0 600.0,455.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="485.0" y="470.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">效果统计</text>
+<polyline points="850.0,462.0 850.0,524.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="844.0" y="497.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">店主确认价</text>
+<polyline points="925.0,466.0 925.0,524.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="919.0" y="492.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送请求</text>
+<text x="919.0" y="506.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">发送确认</text>
+<polyline points="955.0,524.0 955.0,466.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="961.0" y="489.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送预览、发送回执</text>
+<text x="961.0" y="503.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">全店群发文案</text>
+<text x="961.0" y="517.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送效果</text>
+<polyline points="1090.0,366.0 1090.0,524.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1096.0" y="499.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">定价建议</text>
+<polyline points="1325.0,466.0 1325.0,524.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1319.0" y="499.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">查询日期</text>
+<polyline points="1355.0,524.0 1355.0,466.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1361.0" y="492.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">高峰时段</text>
+<text x="1361.0" y="506.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">建议推送时间</text>
+<polyline points="230.0,551.0 150.0,551.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="190.0" y="545.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">策略日累加</text>
+<polyline points="150.0,569.0 230.0,569.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="190.0" y="584.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">策略日统计</text>
+<polyline points="390.0,552.0 540.0,552.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="465.0" y="546.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">转化归因</text>
+<polyline points="540.0,576.0 390.0,576.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="465.0" y="591.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">3小时内送达推送</text>
+<rect x="130.0" y="664.0" width="130.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="130.0" y1="664.0" x2="260.0" y2="664.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="130.0" y1="698.0" x2="260.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="130.0" y1="664.0" x2="130.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="170.0" y1="664.0" x2="170.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<text x="150.0" y="686.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D2</text>
+<text x="215.0" y="685.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">批次台账</text>
+<line x1="137.0" y1="664.0" x2="137.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="330.0" y="664.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="330.0" y1="664.0" x2="470.0" y2="664.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="330.0" y1="698.0" x2="470.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="330.0" y1="664.0" x2="330.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="370.0" y1="664.0" x2="370.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<text x="350.0" y="686.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D8</text>
+<text x="420.0" y="685.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">销售流水</text>
+<line x1="337.0" y1="664.0" x2="337.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<rect x="260.0" y="730.0" width="130.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="260.0" y1="730.0" x2="390.0" y2="730.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="260.0" y1="764.0" x2="390.0" y2="764.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="260.0" y1="730.0" x2="260.0" y2="764.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="300.0" y1="730.0" x2="300.0" y2="764.0" stroke="#303133" stroke-width="1.2"/>
+<text x="280.0" y="752.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D3</text>
+<text x="345.0" y="751.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">定价建议</text>
+<line x1="267.0" y1="730.0" x2="267.0" y2="764.0" stroke="#303133" stroke-width="1.2"/>
+<polyline points="250.0,604.0 250.0,664.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="244.0" y="638.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">库存扣减</text>
+<polyline points="360.0,604.0 360.0,664.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="366.0" y="638.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">销售记录</text>
+<polyline points="305.0,730.0 305.0,604.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="299.0" y="718.0" font-size="12" fill="#606266" text-anchor="end" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">生效策略</text>
+<polyline points="700.0,552.0 840.0,552.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="770.0" y="546.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">当日已送达条数</text>
+<polyline points="840.0,576.0 700.0,576.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="770.0" y="591.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送计划、推送日志</text>
+<polyline points="1100.0,566.0 1190.0,566.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1145.0" y="560.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">站内推送消息</text>
+<polyline points="1190.0,588.0 1100.0,588.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1145.0" y="603.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送打开回执</text>
+<polyline points="1310.0,534.0 1100.0,534.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1205.0" y="528.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">建议推送时间</text>
+<rect x="850.0" y="664.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="850.0" y1="664.0" x2="990.0" y2="664.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="850.0" y1="698.0" x2="990.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="850.0" y1="664.0" x2="850.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="890.0" y1="664.0" x2="890.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<text x="870.0" y="686.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D5</text>
+<text x="940.0" y="685.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">会员及偏好</text>
+<rect x="1010.0" y="664.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1010.0" y1="664.0" x2="1150.0" y2="664.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1010.0" y1="698.0" x2="1150.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1010.0" y1="664.0" x2="1010.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1050.0" y1="664.0" x2="1050.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1030.0" y="686.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D2</text>
+<text x="1100.0" y="685.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">批次台账</text>
+<line x1="1017.0" y1="664.0" x2="1017.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<polyline points="900.0,664.0 900.0,604.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="906.0" y="631.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">目标会员</text>
+<text x="906.0" y="645.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">推送开关</text>
+<polyline points="1060.0,664.0 1060.0,604.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1066.0" y="638.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">在售批次</text>
+<rect x="1310.0" y="664.0" width="140.0" height="34.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="1310.0" y1="664.0" x2="1450.0" y2="664.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1310.0" y1="698.0" x2="1450.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1310.0" y1="664.0" x2="1310.0" y2="698.0" stroke="#303133" stroke-width="1.6"/>
+<line x1="1350.0" y1="664.0" x2="1350.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<text x="1330.0" y="686.0" font-size="12" fill="#606266" text-anchor="middle" font-weight="600">D6</text>
+<text x="1400.0" y="685.5" font-size="13" fill="#303133" text-anchor="middle" font-weight="400">客流统计</text>
+<line x1="1317.0" y1="664.0" x2="1317.0" y2="698.0" stroke="#303133" stroke-width="1.2"/>
+<polyline points="1380.0,664.0 1380.0,604.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1386.0" y="638.0" font-size="12" fill="#606266" text-anchor="start" font-weight="400" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">分时成交笔数</text>
+<text x="32.0" y="805.0" font-size="13" fill="#909399" text-anchor="start" font-weight="400">图例</text>
+<rect x="79.0" y="793.0" width="34.0" height="20.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="76.0" y="790.0" width="34.0" height="20.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.3"/>
+<text x="120.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">外部实体</text>
+<rect x="200.0" y="788.0" width="40.0" height="26.0" rx="6" fill="#eefaf4" stroke="#303133" stroke-width="1.3"/>
+<line x1="200.0" y1="797.0" x2="240.0" y2="797.0" stroke="#303133" stroke-width="1"/>
+<text x="250.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">处理（上栏为编号）</text>
+<rect x="395.0" y="790.0" width="56.0" height="20.0" rx="0" fill="#fdf6ec" stroke="none" stroke-width="0"/>
+<line x1="395.0" y1="790.0" x2="451.0" y2="790.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="395.0" y1="810.0" x2="451.0" y2="810.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="395.0" y1="790.0" x2="395.0" y2="810.0" stroke="#303133" stroke-width="1.3"/>
+<line x1="417.0" y1="790.0" x2="417.0" y2="810.0" stroke="#303133" stroke-width="1"/>
+<text x="461.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">数据存储（左格为编号）</text>
+<polyline points="632.0,800.0 666.0,800.0" fill="none" stroke="#606266" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="676.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">数据流（箭头上写名称）</text>
+<rect x="850.0" y="793.0" width="34.0" height="20.0" rx="0" fill="#dcdfe6" stroke="none" stroke-width="0"/>
+<rect x="847.0" y="790.0" width="34.0" height="20.0" rx="0" fill="#eef4fd" stroke="#303133" stroke-width="1.3"/>
+<line x1="853.0" y1="790.0" x2="853.0" y2="810.0" stroke="#303133" stroke-width="1.2"/>
+<text x="891.0" y="805.0" font-size="13" fill="#606266" text-anchor="start" font-weight="400">左边多一竖线：同一实体/存储重复画出（为避免交叉）</text>
+<text x="32.0" y="836.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">表：D1 fruit_item · D2 fruit_batch · D3 pricing_suggestion · D4 pricing_decision · D5 member、member_pref · D6 shop_traffic_hourly、shop_traffic_profile · D7 push_task、push_log · D8 sales_record · D9 strategy_daily_stat · D10 文件 data/seed/pricing_model.json</text>
+<text x="32.0" y="857.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">P4 经 GET /api/pricing/model-input 读 D1/D2/D8；产物不可用时 P3 回退规则版。D5、D6 运行时只读（种子数据装载）；推送只是站内记录，不接微信/短信；“打开回执”演示中由工作台代标记。</text>
+<text x="32.0" y="878.0" font-size="12.5" fill="#909399" text-anchor="start" font-weight="400">为图面清晰未画：P2/P5/P7 读 D1 取品名和原价；P3 生成前读 D3 做幂等与调价计数。一条箭头写两个名称 = 同方向的两条数据流合画。</text></svg>
