@@ -86,6 +86,22 @@ public class StrategyStatService {
         return true;
     }
 
+    /**
+     * 累加一笔人工登记的报废到 (bizDate, strategy) 日统计（FR-06）。
+     *
+     * @return 是否写入了统计（推断不出策略、报废量不为正时不写）
+     */
+    @Transactional
+    public boolean accumulateScrap(LocalDate bizDate, String strategy, BigDecimal scrapQty) {
+        if (bizDate == null || strategy == null || strategy.isBlank()
+                || scrapQty == null || scrapQty.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        statMapper.upsertScrap(bizDate, strategy.trim().toUpperCase(), scrapQty);
+        log.debug("[scrap] 统计累加 bizDate={} strategy={} scrapQty={}", bizDate, strategy, scrapQty);
+        return true;
+    }
+
     /** 损耗率 = 报废量 /（销量 + 报废量）。 */
     public static BigDecimal scrapRate(BigDecimal scrapQty, BigDecimal soldQty) {
         BigDecimal scrap = nz(scrapQty);

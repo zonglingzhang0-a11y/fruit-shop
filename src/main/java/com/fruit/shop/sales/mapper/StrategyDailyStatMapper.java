@@ -33,4 +33,24 @@ public interface StrategyDailyStatMapper extends BaseMapper<StrategyDailyStat> {
                          @Param("soldQty") BigDecimal soldQty,
                          @Param("revenue") BigDecimal revenue,
                          @Param("cost") BigDecimal cost);
+
+    /**
+     * 报废人工登记（FR-06）：原子累加当日报废量并重算损耗率，口径与 {@link #upsertAccumulate} 相同
+     * （损耗率 = 报废量 ÷（销量 + 报废量）；派生列写在前面、基于旧值显式加增量）。
+     * cost 只记销售成本（与种子统计口径一致：gross_profit = revenue − cost，不含报废成本），所以报废不动 cost。
+     *
+     * <p>参数显式 CAST 成 DECIMAL(10,2)：分子是"列 + 参数"时，H2 推断不出参数类型，除法会按整数算成 0
+     * （分子是纯列时没问题，所以 {@link #upsertAccumulate} 不需要）。MySQL 8 同样支持这个写法。
+     */
+    @Insert("INSERT INTO strategy_daily_stat "
+            + "(biz_date, strategy, sold_qty, scrap_qty, revenue, cost, gross_profit, scrap_rate, stockout_rate) "
+            + "VALUES (#{bizDate}, #{strategy}, 0, CAST(#{scrapQty} AS DECIMAL(10,2)), 0, 0, 0, 1, 0) "
+            + "ON DUPLICATE KEY UPDATE "
+            + "scrap_rate = CASE WHEN scrap_qty + CAST(#{scrapQty} AS DECIMAL(10,2)) + sold_qty <= 0 THEN 0 "
+            + "  ELSE ROUND((scrap_qty + CAST(#{scrapQty} AS DECIMAL(10,2)))"
+            + " / (scrap_qty + CAST(#{scrapQty} AS DECIMAL(10,2)) + sold_qty), 4) END, "
+            + "scrap_qty = scrap_qty + CAST(#{scrapQty} AS DECIMAL(10,2))")
+    int upsertScrap(@Param("bizDate") LocalDate bizDate,
+                    @Param("strategy") String strategy,
+                    @Param("scrapQty") BigDecimal scrapQty);
 }

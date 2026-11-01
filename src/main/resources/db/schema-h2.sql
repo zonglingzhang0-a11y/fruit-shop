@@ -65,6 +65,10 @@ CREATE TABLE fruit_batch (
   expected_scrap_qty      DECIMAL(10,2) NULL,  -- 剩余库存 − 预计销量
   at_risk                 BOOLEAN       NULL,  -- 预计可售天数 > 剩余天数
   metrics_updated_at      TIMESTAMP     NULL,
+  -- FR-06 报废人工登记的留痕（最近一次；累计报废量在 scrap_qty）
+  scrapped_at             TIMESTAMP     NULL,
+  scrap_reason            VARCHAR(255)  NULL,
+  scrap_operator          VARCHAR(32)   NULL,
   created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

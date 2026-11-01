@@ -33,6 +33,8 @@ TREE = [
         ("临期清单查询", ON),    # GET /api/batches/near-expiry
         ("风险批次识别", ON),    # GET /api/batches/at-risk；效果看板"高风险库存"
         ("临期定时扫描", ON),    # J/batch/BatchScanJob.java，每小时只读扫描
+        ("报废人工登记", ON),    # POST /api/batches/{id}/scrap（BatchController.java:49，BatchScrapService）；
+                                 # 临期清单页每行「登记报废」对话框（NearExpiryView.vue）
     ]),
     ("定价决策支持", "页面：定价建议", [
         ("定价建议生成", ON),    # POST /api/pricing/suggestions/generate

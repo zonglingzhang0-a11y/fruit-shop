@@ -99,7 +99,15 @@ public class SchemaInitConfig {
                     "ALTER TABLE pricing_suggestion ADD COLUMN effective_strategy VARCHAR(16) NULL"),
             // 推送计划记住预览折扣：无确认价时只传 taskId 发送，沿用店主预览时看到的价格
             new ColumnMigration("push_task", "discount_rate",
-                    "ALTER TABLE push_task ADD COLUMN discount_rate DECIMAL(4,2) NULL"));
+                    "ALTER TABLE push_task ADD COLUMN discount_rate DECIMAL(4,2) NULL"),
+            // FR-06 报废人工登记的留痕（最近一次登记的时间、原因、登记人）
+            new ColumnMigration("fruit_batch", "scrapped_at",
+                    "ALTER TABLE fruit_batch ADD COLUMN scrapped_at TIMESTAMP NULL",
+                    "ALTER TABLE fruit_batch ADD COLUMN scrapped_at DATETIME NULL"),
+            new ColumnMigration("fruit_batch", "scrap_reason",
+                    "ALTER TABLE fruit_batch ADD COLUMN scrap_reason VARCHAR(255) NULL"),
+            new ColumnMigration("fruit_batch", "scrap_operator",
+                    "ALTER TABLE fruit_batch ADD COLUMN scrap_operator VARCHAR(32) NULL"));
 
     static final List<IndexMigration> INDEXES = List.of(
             new IndexMigration("sales_record", "uk_sales_request_no",

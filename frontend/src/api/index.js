@@ -74,6 +74,8 @@ export const api = {
 
   // 2~3 批次与临期
   createBatch: (payload) => http.post('/batches', payload),
+  // FR-06 报废人工登记：qty 不传 = 整批报废；reason 必填
+  scrapBatch: (batchId, payload) => http.post(`/batches/${batchId}/scrap`, payload),
   nearExpiry: (params) => http.get('/batches/near-expiry', { params }),
   // 临期清单里"有风险"的行（预计可售天数 > 剩余天数），首页待办入口用
   atRisk: (params) => http.get('/batches/at-risk', { params }),

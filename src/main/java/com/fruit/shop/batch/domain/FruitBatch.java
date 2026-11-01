@@ -68,6 +68,13 @@ public class FruitBatch {
     /** 上述指标最近一次计算/落库时间。 */
     private LocalDateTime metricsUpdatedAt;
 
+    /** FR-06：最近一次人工登记报废的时间、原因、登记人（累计报废量见 scrapQty）。 */
+    private LocalDateTime scrappedAt;
+
+    private String scrapReason;
+
+    private String scrapOperator;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
